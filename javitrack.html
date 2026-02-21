@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="JaviTrack" />
   <title>JaviTrack - Registro de Entrenamientos</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -162,6 +163,42 @@ body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .main { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
 }
+
+/* ---- SYNC VIEW ---- */
+.sync-status-bar { display: flex; align-items: center; gap: .6rem; padding: .75rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: .88rem; font-weight: 600; }
+.sync-status-bar.connected { background: rgba(76,175,131,.12); border: 1px solid rgba(76,175,131,.3); color: var(--green); }
+.sync-status-bar.disconnected { background: rgba(245,166,35,.1); border: 1px solid rgba(245,166,35,.25); color: var(--yellow); }
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sync-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.sync-dot.off { background: var(--yellow); }
+
+.sync-section { margin-bottom: 1.5rem; }
+.sync-section-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-bottom: .75rem; }
+
+.sql-block { background: #0d1117; border: 1px solid #30363d; border-radius: var(--radius-sm); padding: .9rem 1rem; font-family: 'Menlo', 'Courier New', monospace; font-size: .75rem; color: #79c0ff; white-space: pre-wrap; word-break: break-all; line-height: 1.6; overflow-x: auto; }
+
+.step-list { display: flex; flex-direction: column; gap: .65rem; counter-reset: steps; }
+.step-item { display: flex; gap: .75rem; align-items: flex-start; font-size: .88rem; color: var(--text-muted); }
+.step-num { background: var(--accent); color: #fff; font-size: .72rem; font-weight: 700; min-width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: .1rem; }
+.step-item a { color: var(--accent); text-decoration: none; }
+.step-item a:active { text-decoration: underline; }
+
+.code-copy-row { display: flex; gap: .5rem; align-items: center; }
+.code-display { flex: 1; font-family: 'Menlo', 'Courier New', monospace; letter-spacing: .1em; font-size: 1rem; font-weight: 700; color: var(--accent); background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .65rem .85rem; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-green:active { filter: brightness(.9); }
+
+.sync-form { display: flex; flex-direction: column; gap: .75rem; }
+.input-with-btn { display: flex; gap: .5rem; }
+.input-with-btn .input { flex: 1; }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: var(--bg-card); border: 1px solid var(--border); color: var(--text); padding: .65rem 1.25rem; border-radius: 30px; font-size: .88rem; font-weight: 600; z-index: 999; box-shadow: var(--shadow); opacity: 0; transition: opacity .3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+
+.sync-loading { display: flex; align-items: center; gap: .5rem; color: var(--text-muted); font-size: .85rem; padding: .75rem 0; }
 </style>
 </head>
 <body>
@@ -174,6 +211,7 @@ body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background
       <button class="nav-btn" data-view="add">+ Entreno</button>
       <button class="nav-btn" data-view="history">Historial</button>
       <button class="nav-btn" data-view="stats">Stats</button>
+      <button class="nav-btn" data-view="sync">☁️ Sync</button>
     </nav>
   </div>
 </header>
@@ -185,6 +223,10 @@ body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background
     <div class="page-title">
       <h1>Panel Principal</h1>
       <p class="subtitle">Tu progreso de esta semana</p>
+    </div>
+    <div id="sync-loading-banner" class="sync-loading" style="display:none">
+      <span class="spinner" style="border-color:rgba(108,99,255,.3);border-top-color:var(--accent)"></span>
+      Sincronizando con la nube…
     </div>
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-icon">🏋️</div><div class="stat-info"><span class="stat-value" id="stat-total">0</span><span class="stat-label">Total entrenos</span></div></div>
@@ -250,7 +292,7 @@ body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background
       <div class="form-group"><label>Notas</label><textarea id="workout-notes" class="input textarea" placeholder="Cómo te has sentido, ajustes..."></textarea></div>
       <div class="form-actions">
         <button type="button" class="btn btn-outline" onclick="showView('dashboard')">Cancelar</button>
-        <button type="submit" class="btn btn-primary">Guardar 💾</button>
+        <button type="submit" class="btn btn-primary" id="save-btn">Guardar 💾</button>
       </div>
     </form>
   </section>
@@ -282,6 +324,93 @@ body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background
       <div class="card stats-card"><h3>Por Mes</h3><div id="chart-by-month" class="bar-chart"></div></div>
     </div>
     <div class="card stats-card mt-1"><h3>Ejercicios más frecuentes</h3><div id="top-exercises" class="top-list"></div></div>
+  </section>
+
+  <!-- SYNC VIEW -->
+  <section id="view-sync" class="view">
+    <div class="page-title"><h1>Sincronización ☁️</h1><p class="subtitle">Accede a tus datos en cualquier dispositivo</p></div>
+
+    <!-- Status -->
+    <div id="sync-status-bar" class="sync-status-bar disconnected">
+      <span class="sync-dot off" id="sync-dot"></span>
+      <span id="sync-status-text">No configurado — los datos solo se guardan en este dispositivo</span>
+    </div>
+
+    <!-- Paso 1: Crear cuenta -->
+    <div class="sync-section">
+      <div class="sync-section-title">Paso 1 — Crea tu base de datos gratis (solo la primera vez)</div>
+      <div class="card" style="padding:1.1rem">
+        <div class="step-list">
+          <div class="step-item"><span class="step-num">1</span><span>Ve a <a href="https://supabase.com" target="_blank">supabase.com</a> y regístrate gratis (con Google o email).</span></div>
+          <div class="step-item"><span class="step-num">2</span><span>Crea un proyecto nuevo (nombre libre, recuerda la contraseña).</span></div>
+          <div class="step-item"><span class="step-num">3</span><span>En el panel izquierdo abre <strong>SQL Editor</strong> y ejecuta este código (botón ▶ Run):</span></div>
+        </div>
+        <div class="sql-block" style="margin-top:.85rem">create table workouts (
+  id text primary key,
+  user_code text not null,
+  name text not null,
+  date text,
+  duration text,
+  category text,
+  intensity int default 2,
+  notes text default '',
+  exercises jsonb default '[]',
+  created_at timestamptz default now()
+);
+alter table workouts enable row level security;
+create policy "open" on workouts for all using (true) with check (true);</div>
+      </div>
+    </div>
+
+    <!-- Paso 2: Credenciales -->
+    <div class="sync-section">
+      <div class="sync-section-title">Paso 2 — Copia tus credenciales de Supabase</div>
+      <div class="card" style="padding:1.1rem">
+        <div class="step-list">
+          <div class="step-item"><span class="step-num">4</span><span>En Supabase, ve a <strong>Settings → API</strong> (icono ⚙️ en el panel izquierdo).</span></div>
+          <div class="step-item"><span class="step-num">5</span><span>Copia la <strong>Project URL</strong> y la <strong>anon public key</strong> y pégalas abajo.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paso 3: Configurar -->
+    <div class="sync-section">
+      <div class="sync-section-title">Paso 3 — Configura la app</div>
+      <div class="card" style="padding:1.1rem">
+        <div class="sync-form">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Project URL de Supabase</label>
+            <input type="url" id="sb-url" class="input" placeholder="https://xxxxxxxxxxxx.supabase.co" />
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Anon Public Key</label>
+            <input type="text" id="sb-key" class="input" placeholder="eyJhbGciOiJIUzI1NiIs..." />
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Tu Código de Sincronización <span style="color:var(--text-muted);font-weight:400;text-transform:none">(invéntalo o genera uno automático)</span></label>
+            <div class="input-with-btn">
+              <input type="text" id="sb-code" class="input" placeholder="Ej: javi2024gym" />
+              <button class="btn btn-outline btn-sm" onclick="generateCode()" style="white-space:nowrap">Generar</button>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="saveAndSync()" id="sync-save-btn" style="width:100%;justify-content:center;margin-top:.25rem">Guardar y Sincronizar</button>
+          <button class="btn btn-outline btn-sm" onclick="disconnectSync()" id="sync-disconnect-btn" style="display:none;width:100%;justify-content:center;color:#c0392b;border-color:#c0392b">Desconectar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Código para compartir -->
+    <div class="sync-section" id="share-section" style="display:none">
+      <div class="sync-section-title">Para sincronizar en otro dispositivo</div>
+      <div class="card" style="padding:1.1rem">
+        <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:.85rem">Abre JaviTrack en el otro dispositivo, ve a ☁️ Sync, pon la misma URL, la misma Key y este código:</p>
+        <div class="code-copy-row">
+          <div class="code-display" id="share-code-display">—</div>
+          <button class="btn btn-green btn-sm" onclick="copyCode()">Copiar</button>
+        </div>
+        <p style="font-size:.78rem;color:var(--text-muted);margin-top:.65rem">El código es como tu contraseña. Quien lo tenga verá tus datos.</p>
+      </div>
+    </div>
   </section>
 
 </main>
@@ -318,14 +447,111 @@ body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background
   </div>
 </template>
 
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
 <script>
-/* ---- Storage ---- */
-const STORAGE_KEY = 'javitrack_workouts';
-function getWorkouts() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } }
-function saveWorkouts(w) { localStorage.setItem(STORAGE_KEY, JSON.stringify(w)); }
-function addWorkout(w) { const ws = getWorkouts(); w.id = Date.now().toString(); w.createdAt = new Date().toISOString(); ws.unshift(w); saveWorkouts(ws); return w; }
-function deleteWorkout(id) { saveWorkouts(getWorkouts().filter(w => w.id !== id)); }
-function getWorkoutById(id) { return getWorkouts().find(w => w.id === id) || null; }
+/* ---- Supabase ---- */
+let sb = null;
+let userCode = null;
+
+function initSupabase() {
+  const url = localStorage.getItem('sb_url');
+  const key = localStorage.getItem('sb_key');
+  userCode = localStorage.getItem('sb_user_code');
+  if (url && key && userCode) {
+    sb = window.supabase.createClient(url, key);
+    return true;
+  }
+  return false;
+}
+
+/* ---- Storage (Supabase + localStorage cache) ---- */
+const CACHE_KEY = 'javitrack_workouts';
+
+function getCachedWorkouts() {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || []; } catch { return []; }
+}
+function setCachedWorkouts(workouts) {
+  localStorage.setItem(CACHE_KEY, JSON.stringify(workouts));
+}
+function getWorkouts() {
+  return getCachedWorkouts();
+}
+
+async function syncFromCloud() {
+  if (!sb || !userCode) return null;
+  try {
+    const { data, error } = await sb
+      .from('workouts')
+      .select('*')
+      .eq('user_code', userCode)
+      .order('date', { ascending: false });
+    if (error) throw error;
+    const mapped = data.map(r => ({
+      id: r.id,
+      name: r.name,
+      date: r.date,
+      duration: r.duration || '',
+      category: r.category,
+      intensity: r.intensity,
+      notes: r.notes || '',
+      exercises: r.exercises || [],
+      createdAt: r.created_at,
+    }));
+    setCachedWorkouts(mapped);
+    return mapped;
+  } catch (e) {
+    console.error('Sync error:', e);
+    return null;
+  }
+}
+
+async function addWorkout(w) {
+  w.id = Date.now().toString();
+  w.createdAt = new Date().toISOString();
+  // Optimistic local update
+  const ws = getCachedWorkouts();
+  ws.unshift(w);
+  setCachedWorkouts(ws);
+  // Cloud save
+  if (sb && userCode) {
+    try {
+      const { error } = await sb.from('workouts').insert({
+        id: w.id,
+        user_code: userCode,
+        name: w.name,
+        date: w.date || null,
+        duration: w.duration || null,
+        category: w.category,
+        intensity: w.intensity,
+        notes: w.notes || '',
+        exercises: w.exercises || [],
+      });
+      if (error) throw error;
+    } catch (e) {
+      console.error('Cloud save error:', e);
+      showToast('Guardado localmente (sin conexión a la nube)');
+    }
+  }
+  return w;
+}
+
+async function deleteWorkout(id) {
+  // Optimistic local update
+  setCachedWorkouts(getCachedWorkouts().filter(w => w.id !== id));
+  // Cloud delete
+  if (sb && userCode) {
+    try {
+      const { error } = await sb.from('workouts').delete().eq('id', id).eq('user_code', userCode);
+      if (error) throw error;
+    } catch (e) {
+      console.error('Cloud delete error:', e);
+    }
+  }
+}
+
+function getWorkoutById(id) { return getCachedWorkouts().find(w => w.id === id) || null; }
 
 /* ---- Constants ---- */
 const CATEGORIES = {
@@ -340,7 +566,7 @@ const INTENSITY_LABELS = { 1:'😴 Suave', 2:'🙂 Moderado', 3:'😤 Intenso', 
 let currentModalId = null;
 
 /* ---- Init ---- */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   setTodayDate();
   initNavigation();
   initCategorySelector();
@@ -350,6 +576,21 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDashboard();
   renderHistory();
   renderStats();
+
+  const connected = initSupabase();
+  updateSyncUI();
+
+  if (connected) {
+    const banner = document.getElementById('sync-loading-banner');
+    banner.style.display = 'flex';
+    const result = await syncFromCloud();
+    banner.style.display = 'none';
+    if (result !== null) {
+      renderDashboard();
+      renderHistory();
+      renderStats();
+    }
+  }
 });
 
 /* ---- Navigation ---- */
@@ -367,6 +608,7 @@ function showView(name) {
   if (name === 'history')   renderHistory();
   if (name === 'stats')     renderStats();
   if (name === 'add')       resetForm();
+  if (name === 'sync')      updateSyncUI();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -492,11 +734,14 @@ function addExerciseRow() {
   document.getElementById('exercises-container').appendChild(clone);
 }
 function initWorkoutForm() {
-  document.getElementById('workout-form').addEventListener('submit', e => {
+  document.getElementById('workout-form').addEventListener('submit', async e => {
     e.preventDefault();
     const category = document.getElementById('workout-category').value;
     if (!category) { alert('Por favor selecciona una categoría.'); return; }
-    addWorkout({
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Guardando…';
+    await addWorkout({
       name:      document.getElementById('workout-name').value.trim(),
       date:      document.getElementById('workout-date').value,
       duration:  document.getElementById('workout-duration').value||'',
@@ -505,6 +750,9 @@ function initWorkoutForm() {
       notes:     document.getElementById('workout-notes').value.trim(),
       exercises: collectExercises(),
     });
+    btn.disabled = false;
+    btn.innerHTML = 'Guardar 💾';
+    showToast('Entrenamiento guardado ✓');
     showView('dashboard');
   });
 }
@@ -543,12 +791,123 @@ function openModal(id) {
     </div>
     ${exHTML}
     ${w.notes?`<div class="detail-notes">📝 ${escapeHTML(w.notes)}</div>`:''}`;
-  document.getElementById('modal-delete-btn').onclick = () => {
-    if (confirm('¿Eliminar este entrenamiento?')) { deleteWorkout(currentModalId); closeModal(); renderDashboard(); renderHistory(); renderStats(); }
+  document.getElementById('modal-delete-btn').onclick = async () => {
+    if (confirm('¿Eliminar este entrenamiento?')) {
+      await deleteWorkout(currentModalId);
+      closeModal();
+      renderDashboard(); renderHistory(); renderStats();
+      showToast('Entrenamiento eliminado');
+    }
   };
   document.getElementById('modal-overlay').classList.remove('hidden');
 }
 function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); currentModalId=null; }
+
+/* ---- Sync View ---- */
+function updateSyncUI() {
+  const url = localStorage.getItem('sb_url');
+  const key = localStorage.getItem('sb_key');
+  const code = localStorage.getItem('sb_user_code');
+  const configured = !!(url && key && code);
+
+  const bar = document.getElementById('sync-status-bar');
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('sync-status-text');
+  const disconnectBtn = document.getElementById('sync-disconnect-btn');
+  const shareSection = document.getElementById('share-section');
+
+  if (configured) {
+    bar.className = 'sync-status-bar connected';
+    dot.className = 'sync-dot on';
+    txt.textContent = 'Conectado — tus datos se sincronizan con la nube';
+    disconnectBtn.style.display = 'block';
+    shareSection.style.display = 'block';
+    document.getElementById('share-code-display').textContent = code;
+    document.getElementById('sb-url').value = url;
+    document.getElementById('sb-key').value = key;
+    document.getElementById('sb-code').value = code;
+  } else {
+    bar.className = 'sync-status-bar disconnected';
+    dot.className = 'sync-dot off';
+    txt.textContent = 'No configurado — los datos solo se guardan en este dispositivo';
+    disconnectBtn.style.display = 'none';
+    shareSection.style.display = 'none';
+  }
+}
+
+async function saveAndSync() {
+  const url = document.getElementById('sb-url').value.trim();
+  const key = document.getElementById('sb-key').value.trim();
+  const code = document.getElementById('sb-code').value.trim();
+  if (!url || !key || !code) { showToast('Rellena todos los campos'); return; }
+
+  const btn = document.getElementById('sync-save-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Probando conexión…';
+
+  try {
+    const client = window.supabase.createClient(url, key);
+    const { error } = await client.from('workouts').select('id').eq('user_code', code).limit(1);
+    if (error) throw error;
+
+    localStorage.setItem('sb_url', url);
+    localStorage.setItem('sb_key', key);
+    localStorage.setItem('sb_user_code', code);
+    sb = client;
+    userCode = code;
+
+    btn.innerHTML = '<span class="spinner"></span> Sincronizando datos…';
+    const result = await syncFromCloud();
+    if (result !== null) {
+      renderDashboard(); renderHistory(); renderStats();
+    }
+    showToast('¡Conectado! Datos sincronizados ✓');
+    updateSyncUI();
+  } catch (e) {
+    showToast('Error de conexión. Revisa la URL y la Key.');
+    console.error(e);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'Guardar y Sincronizar';
+}
+
+function disconnectSync() {
+  if (!confirm('¿Desconectar la sincronización? Tus datos locales se conservan.')) return;
+  localStorage.removeItem('sb_url');
+  localStorage.removeItem('sb_key');
+  localStorage.removeItem('sb_user_code');
+  sb = null;
+  userCode = null;
+  document.getElementById('sb-url').value = '';
+  document.getElementById('sb-key').value = '';
+  document.getElementById('sb-code').value = '';
+  updateSyncUI();
+  showToast('Sincronización desconectada');
+}
+
+function generateCode() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const part = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+  document.getElementById('sb-code').value = part()+'-'+part()+'-'+part();
+}
+
+function copyCode() {
+  const code = document.getElementById('share-code-display').textContent;
+  navigator.clipboard.writeText(code).then(() => showToast('Código copiado ✓')).catch(() => {
+    prompt('Copia este código:', code);
+  });
+}
+
+/* ---- Toast ---- */
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
 
 /* ---- Utils ---- */
 function formatDate(d) {
