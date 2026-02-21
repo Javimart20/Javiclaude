@@ -164,6 +164,29 @@ body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background
   .main { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
 }
 
+/* ---- IMPORT VIEW ---- */
+.import-step { margin-bottom: 1.5rem; }
+.import-step-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-bottom: .75rem; }
+.dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 2rem 1rem; text-align: center; cursor: pointer; transition: border .2s; }
+.dropzone:hover, .dropzone.drag-over { border-color: var(--accent); background: rgba(108,99,255,.06); }
+.dropzone-icon { font-size: 2rem; margin-bottom: .5rem; }
+.dropzone-text { font-size: .88rem; color: var(--text-muted); }
+.dropzone input[type=file] { display: none; }
+.import-preview { margin-top: 1rem; }
+.preview-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; flex-wrap: wrap; gap: .5rem; }
+.preview-count { font-size: .85rem; color: var(--text-muted); }
+.preview-table { display: flex; flex-direction: column; gap: .45rem; max-height: 400px; overflow-y: auto; }
+.preview-row { display: flex; align-items: center; gap: .65rem; background: var(--bg-input); border-radius: var(--radius-sm); padding: .55rem .85rem; }
+.preview-check { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+.preview-info { flex: 1; min-width: 0; }
+.preview-name { font-size: .88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.preview-meta { font-size: .72rem; color: var(--text-muted); margin-top: .1rem; }
+.preview-cat { font-size: .7rem; padding: .1rem .4rem; border-radius: 12px; background: rgba(108,99,255,.2); color: var(--accent); font-weight: 600; flex-shrink: 0; }
+.import-progress { margin-top: 1rem; }
+.progress-bar-track { height: 8px; background: var(--bg-input); border-radius: 8px; overflow: hidden; margin: .5rem 0; }
+.progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #a59dff); border-radius: 8px; transition: width .3s; }
+.progress-text { font-size: .82rem; color: var(--text-muted); text-align: center; }
+
 /* ---- SYNC VIEW ---- */
 .sync-status-bar { display: flex; align-items: center; gap: .6rem; padding: .75rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: .88rem; font-weight: 600; }
 .sync-status-bar.connected { background: rgba(76,175,131,.12); border: 1px solid rgba(76,175,131,.3); color: var(--green); }
@@ -212,6 +235,7 @@ body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background
       <button class="nav-btn" data-view="history">Historial</button>
       <button class="nav-btn" data-view="stats">Stats</button>
       <button class="nav-btn" data-view="sync">☁️ Sync</button>
+      <button class="nav-btn" data-view="import">📥 Importar</button>
     </nav>
   </div>
 </header>
@@ -324,6 +348,89 @@ body { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; background
       <div class="card stats-card"><h3>Por Mes</h3><div id="chart-by-month" class="bar-chart"></div></div>
     </div>
     <div class="card stats-card mt-1"><h3>Ejercicios más frecuentes</h3><div id="top-exercises" class="top-list"></div></div>
+  </section>
+
+  <!-- IMPORT VIEW -->
+  <section id="view-import" class="view">
+    <div class="page-title"><h1>Importar Notas 📥</h1><p class="subtitle">Trae tus entrenamientos desde la app Notas del iPhone/Mac</p></div>
+
+    <!-- Paso 1: AppleScript -->
+    <div class="import-step">
+      <div class="import-step-title">Paso 1 — Exportar tus Notas desde el Mac (1 vez)</div>
+      <div class="card" style="padding:1.1rem">
+        <div class="step-list" style="margin-bottom:.85rem">
+          <div class="step-item"><span class="step-num">1</span><span>Abre <strong>Script Editor</strong> en tu Mac (búscalo en Spotlight con ⌘+Espacio).</span></div>
+          <div class="step-item"><span class="step-num">2</span><span>Copia el script de abajo, pégalo en Script Editor y pulsa el botón <strong>▶ Run</strong>.</span></div>
+          <div class="step-item"><span class="step-num">3</span><span>Se creará el archivo <strong>javitrack_notas.txt</strong> en tu Escritorio. ¡Puede tardar unos minutos con 2000 notas!</span></div>
+        </div>
+        <div class="code-copy-row" style="margin-bottom:.5rem">
+          <span style="font-size:.75rem;color:var(--text-muted)">Script AppleScript para Mac:</span>
+          <button class="btn btn-outline btn-sm" onclick="copyAppleScript()">Copiar script</button>
+        </div>
+        <div class="sql-block" id="applescript-block">tell application "Notes"
+    set allNotes to every note
+    set exportContent to ""
+    set noteCount to count of allNotes
+    set i to 0
+    repeat with aNote in allNotes
+        set i to i + 1
+        set noteTitle to name of aNote
+        set noteBody to plaintext of aNote
+        set noteDate to modification date of aNote
+        set exportContent to exportContent & "===INICIO_NOTA===" & return
+        set exportContent to exportContent & "TITULO:" & noteTitle & return
+        set exportContent to exportContent & "FECHA:" & (noteDate as string) & return
+        set exportContent to exportContent & "CONTENIDO:" & return
+        set exportContent to exportContent & noteBody & return
+        set exportContent to exportContent & "===FIN_NOTA===" & return & return
+    end repeat
+end tell
+
+set filePath to ((path to desktop as text) & "javitrack_notas.txt")
+set fileRef to open for access file filePath with write permission
+set eof of fileRef to 0
+write exportContent to fileRef
+close access fileRef
+display dialog "¡Listo! Se exportaron " & i & " notas al Escritorio como 'javitrack_notas.txt'" buttons {"OK"} default button "OK"</div>
+      </div>
+    </div>
+
+    <!-- Paso 2: Subir archivo -->
+    <div class="import-step">
+      <div class="import-step-title">Paso 2 — Sube el archivo exportado</div>
+      <div class="card" style="padding:1.1rem">
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+          <div class="dropzone-icon">📂</div>
+          <div class="dropzone-text">Pulsa para seleccionar <strong>javitrack_notas.txt</strong><br>o arrastra el archivo aquí</div>
+          <input type="file" id="file-input" accept=".txt" onchange="handleFileSelect(this.files[0])" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Paso 3: Vista previa -->
+    <div class="import-step" id="import-preview-section" style="display:none">
+      <div class="import-step-title">Paso 3 — Revisa y confirma</div>
+      <div class="card" style="padding:1.1rem">
+        <div class="import-preview">
+          <div class="preview-header">
+            <span class="preview-count" id="preview-count">0 entrenamientos detectados</span>
+            <div style="display:flex;gap:.5rem">
+              <button class="btn btn-outline btn-sm" onclick="toggleSelectAll(true)">Todos</button>
+              <button class="btn btn-outline btn-sm" onclick="toggleSelectAll(false)">Ninguno</button>
+            </div>
+          </div>
+          <div class="preview-table" id="preview-table"></div>
+        </div>
+        <div style="margin-top:1rem;display:flex;gap:.65rem;justify-content:flex-end;border-top:1px solid var(--border);padding-top:.9rem">
+          <button class="btn btn-outline" onclick="resetImport()">Cancelar</button>
+          <button class="btn btn-primary" id="import-btn" onclick="runImport()">Importar seleccionados 💾</button>
+        </div>
+        <div class="import-progress" id="import-progress" style="display:none">
+          <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+          <div class="progress-text" id="progress-text">Importando…</div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- SYNC VIEW -->
@@ -609,6 +716,7 @@ function showView(name) {
   if (name === 'stats')     renderStats();
   if (name === 'add')       resetForm();
   if (name === 'sync')      updateSyncUI();
+  if (name === 'import')    resetImport();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -917,6 +1025,240 @@ function formatDate(d) {
 }
 function formatMonth(ym) { const [y,m]=ym.split('-'); return ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(m)-1]+' '+y; }
 function escapeHTML(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ---- IMPORT FROM NOTES ---- */
+let parsedNotes = [];
+
+// Drag & drop
+document.addEventListener('DOMContentLoaded', () => {
+  const dz = document.getElementById('dropzone');
+  if (!dz) return;
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  });
+});
+
+function handleFileSelect(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    parsedNotes = parseNotesFile(text);
+    showImportPreview(parsedNotes);
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseNotesFile(text) {
+  const blocks = text.split('===INICIO_NOTA===').filter(b => b.trim());
+  const workouts = [];
+
+  for (const block of blocks) {
+    const endIdx = block.indexOf('===FIN_NOTA===');
+    const content = endIdx >= 0 ? block.substring(0, endIdx) : block;
+    const lines = content.split('\n');
+
+    let title = '', dateRaw = '', bodyLines = [], inContent = false;
+    for (const line of lines) {
+      if (line.startsWith('TITULO:'))    { title = line.substring(7).trim(); }
+      else if (line.startsWith('FECHA:')) { dateRaw = line.substring(6).trim(); }
+      else if (line.startsWith('CONTENIDO:')) { inContent = true; }
+      else if (inContent) { bodyLines.push(line); }
+    }
+
+    const body = bodyLines.join('\n').trim();
+    const name = title || body.split('\n').find(l => l.trim()) || 'Entrenamiento';
+    if (!name) continue;
+
+    workouts.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      name: name.substring(0, 80),
+      date: parseNoteDate(dateRaw),
+      duration: detectDuration(body),
+      category: detectCategory(title + ' ' + body),
+      intensity: 2,
+      notes: body.substring(0, 1000),
+      exercises: parseExercises(body),
+      createdAt: new Date().toISOString(),
+      _selected: true,
+    });
+  }
+
+  return workouts;
+}
+
+function parseNoteDate(raw) {
+  if (!raw) return new Date().toISOString().split('T')[0];
+  // Try ISO format YYYY-MM-DD
+  const iso = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  // Try to extract from locale string (Spanish/English AppleScript date)
+  const spanishMonths = { enero:'01', febrero:'02', marzo:'03', abril:'04', mayo:'05', junio:'06',
+    julio:'07', agosto:'08', septiembre:'09', octubre:'10', noviembre:'11', diciembre:'12' };
+  const englishMonths = { january:'01', february:'02', march:'03', april:'04', may:'05', june:'06',
+    july:'07', august:'08', september:'09', october:'10', november:'11', december:'12' };
+  const allMonths = { ...spanishMonths, ...englishMonths };
+  const lower = raw.toLowerCase();
+  for (const [month, num] of Object.entries(allMonths)) {
+    if (lower.includes(month)) {
+      const yearM = raw.match(/\b(20\d{2})\b/);
+      const dayM  = raw.match(/\b(\d{1,2})\b/);
+      if (yearM && dayM) return `${yearM[1]}-${num}-${dayM[1].padStart(2,'0')}`;
+    }
+  }
+  // dd/mm/yyyy or mm/dd/yyyy
+  const slashM = raw.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (slashM) {
+    const y = slashM[3].length === 2 ? '20' + slashM[3] : slashM[3];
+    return `${y}-${slashM[2].padStart(2,'0')}-${slashM[1].padStart(2,'0')}`;
+  }
+  return new Date().toISOString().split('T')[0];
+}
+
+function detectCategory(text) {
+  const t = text.toLowerCase();
+  if (/cardio|correr|running|bicicleta|ciclismo|nadar|nataci[oó]n|\bkm\b|kil[oó]metro/.test(t)) return 'cardio';
+  if (/hiit|tabata|circuito|interval|amrap|emom/.test(t)) return 'hiit';
+  if (/yoga|flexibilidad|estiramiento|pilates|stretch|movilidad/.test(t)) return 'flexibility';
+  if (/pierna|sentadilla|femoral|cu[aá]dricep|gl[uú]teo|zancada|leg press|hip thrust|peso muerto/.test(t)) return 'lower';
+  if (/pecho|espalda|hombro|b[ií]ceps|tr[ií]ceps|press banca|dominadas|remo|pull[- ]?up|push/.test(t)) return 'upper';
+  return 'fullbody';
+}
+
+function detectDuration(text) {
+  const hourM = text.match(/(\d+)\s*h(?:ora)?(?:\s*(?:y\s*)?(\d+)\s*(?:min)?)?/i);
+  if (hourM) {
+    const h = parseInt(hourM[1]) * 60;
+    const m = parseInt(hourM[2] || 0);
+    return String(h + m);
+  }
+  const minM = text.match(/(\d+)\s*(?:min(?:utos?)?|')\b/i);
+  if (minM) return minM[1];
+  return '';
+}
+
+function parseExercises(text) {
+  const exs = [];
+  // Match patterns like: "Press banca 4x10 80kg" or "Sentadillas: 3x12 70kg" or "- Flexiones 3x15"
+  const re = /^[-•*]?\s*([A-Za-záéíóúüñÁÉÍÓÚÜÑ][A-Za-záéíóúüñÁÉÍÓÚÜÑ\s]{2,40?}?)\s*[:\-]?\s*(\d{1,2})\s*[xX×]\s*(\d{1,3})(?:\s*(?:@|a)?\s*(\d+(?:[.,]\d+)?)\s*kg)?/m;
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const m = line.trim().match(re);
+    if (m && exs.length < 15) {
+      exs.push({ name: m[1].trim(), sets: m[2], reps: m[3], weight: m[4] ? m[4].replace(',','.') : '', duration: '', notes: '' });
+    }
+  }
+  return exs;
+}
+
+function showImportPreview(workouts) {
+  const section = document.getElementById('import-preview-section');
+  const table   = document.getElementById('preview-table');
+  const countEl = document.getElementById('preview-count');
+
+  section.style.display = 'block';
+  countEl.textContent = `${workouts.length} entrenamientos detectados`;
+
+  table.innerHTML = workouts.map((w, i) => {
+    const cat = CATEGORIES[w.category] || { emoji: '🏋️', label: w.category };
+    const exInfo = w.exercises.length ? ` · ${w.exercises.length} ejercicio${w.exercises.length>1?'s':''}` : '';
+    return `<div class="preview-row">
+      <input class="preview-check" type="checkbox" id="pc-${i}" ${w._selected?'checked':''} onchange="parsedNotes[${i}]._selected=this.checked;updateImportBtn()">
+      <label class="preview-info" for="pc-${i}" style="cursor:pointer">
+        <div class="preview-name">${escapeHTML(w.name)}</div>
+        <div class="preview-meta">${formatDate(w.date)}${w.duration?' · '+w.duration+' min':''}${exInfo}</div>
+      </label>
+      <span class="preview-cat">${cat.emoji} ${cat.label}</span>
+    </div>`;
+  }).join('');
+
+  updateImportBtn();
+  document.getElementById('import-preview-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function updateImportBtn() {
+  const selected = parsedNotes.filter(w => w._selected).length;
+  const btn = document.getElementById('import-btn');
+  btn.textContent = `Importar ${selected} entrenamiento${selected!==1?'s':''} 💾`;
+  btn.disabled = selected === 0;
+}
+
+function toggleSelectAll(val) {
+  parsedNotes.forEach((w, i) => {
+    w._selected = val;
+    const cb = document.getElementById('pc-' + i);
+    if (cb) cb.checked = val;
+  });
+  updateImportBtn();
+}
+
+async function runImport() {
+  const toImport = parsedNotes.filter(w => w._selected);
+  if (!toImport.length) return;
+
+  const btn = document.getElementById('import-btn');
+  const progressDiv = document.getElementById('import-progress');
+  const fill = document.getElementById('progress-fill');
+  const pText = document.getElementById('progress-text');
+
+  btn.disabled = true;
+  progressDiv.style.display = 'block';
+
+  let done = 0;
+  const total = toImport.length;
+
+  for (const w of toImport) {
+    const workout = { ...w };
+    delete workout._selected;
+    // Use addWorkout if Supabase is configured, else just local
+    const ws = getCachedWorkouts();
+    ws.unshift(workout);
+    setCachedWorkouts(ws);
+    if (sb && userCode) {
+      try {
+        await sb.from('workouts').insert({
+          id: workout.id, user_code: userCode, name: workout.name,
+          date: workout.date || null, duration: workout.duration || null,
+          category: workout.category, intensity: workout.intensity,
+          notes: workout.notes || '', exercises: workout.exercises || [],
+        });
+      } catch(e) { /* best effort */ }
+    }
+    done++;
+    const pct = Math.round((done / total) * 100);
+    fill.style.width = pct + '%';
+    pText.textContent = `Importando… ${done} / ${total}`;
+    // Yield to UI every 50 workouts
+    if (done % 50 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+
+  showToast(`¡${done} entrenamientos importados correctamente! ✓`);
+  progressDiv.style.display = 'none';
+  btn.disabled = false;
+  renderDashboard(); renderHistory(); renderStats();
+  resetImport();
+  showView('dashboard');
+}
+
+function resetImport() {
+  parsedNotes = [];
+  document.getElementById('import-preview-section').style.display = 'none';
+  document.getElementById('preview-table').innerHTML = '';
+  document.getElementById('file-input').value = '';
+  document.getElementById('import-progress').style.display = 'none';
+}
+
+function copyAppleScript() {
+  const code = document.getElementById('applescript-block').textContent;
+  navigator.clipboard.writeText(code)
+    .then(() => showToast('Script copiado ✓'))
+    .catch(() => { prompt('Copia el script:', code); });
+}
 </script>
 </body>
 </html>
