@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JaviTrack - Registro de Entrenamientos</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">💪</span>
+        <span class="logo-text">JaviTrack</span>
+      </div>
+      <nav class="nav">
+        <button class="nav-btn active" data-view="dashboard">Inicio</button>
+        <button class="nav-btn" data-view="add">+ Entrenamiento</button>
+        <button class="nav-btn" data-view="history">Historial</button>
+        <button class="nav-btn" data-view="stats">Estadísticas</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ========== DASHBOARD ========== -->
+    <section id="view-dashboard" class="view active">
+      <div class="page-title">
+        <h1>Panel Principal</h1>
+        <p class="subtitle">Tu progreso de esta semana</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">🏋️</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-total">0</span>
+            <span class="stat-label">Total entrenos</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📅</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-week">0</span>
+            <span class="stat-label">Esta semana</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🔥</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-streak">0</span>
+            <span class="stat-label">Racha (días)</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-time">0</span>
+            <span class="stat-label">Minutos totales</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category quick filters -->
+      <div class="section-title">Categorías</div>
+      <div class="category-cards">
+        <div class="cat-card" data-cat="upper" onclick="filterByCategory('upper')">
+          <span class="cat-emoji">💪</span>
+          <span class="cat-name">Parte Superior</span>
+          <span class="cat-count" id="cat-count-upper">0</span>
+        </div>
+        <div class="cat-card" data-cat="lower" onclick="filterByCategory('lower')">
+          <span class="cat-emoji">🦵</span>
+          <span class="cat-name">Parte Inferior</span>
+          <span class="cat-count" id="cat-count-lower">0</span>
+        </div>
+        <div class="cat-card" data-cat="fullbody" onclick="filterByCategory('fullbody')">
+          <span class="cat-emoji">🏋️</span>
+          <span class="cat-name">Todo el Cuerpo</span>
+          <span class="cat-count" id="cat-count-fullbody">0</span>
+        </div>
+        <div class="cat-card" data-cat="cardio" onclick="filterByCategory('cardio')">
+          <span class="cat-emoji">🏃</span>
+          <span class="cat-name">Cardio</span>
+          <span class="cat-count" id="cat-count-cardio">0</span>
+        </div>
+        <div class="cat-card" data-cat="hiit" onclick="filterByCategory('hiit')">
+          <span class="cat-emoji">⚡</span>
+          <span class="cat-name">HIIT</span>
+          <span class="cat-count" id="cat-count-hiit">0</span>
+        </div>
+        <div class="cat-card" data-cat="flexibility" onclick="filterByCategory('flexibility')">
+          <span class="cat-emoji">🧘</span>
+          <span class="cat-name">Flexibilidad</span>
+          <span class="cat-count" id="cat-count-flexibility">0</span>
+        </div>
+      </div>
+
+      <!-- Recent workouts -->
+      <div class="section-title">Últimos Entrenamientos</div>
+      <div id="recent-workouts" class="workout-list">
+        <div class="empty-state">
+          <span class="empty-icon">🏁</span>
+          <p>Aún no hay entrenamientos. ¡Empieza el primero!</p>
+          <button class="btn btn-primary" onclick="showView('add')">Añadir Entrenamiento</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== ADD WORKOUT ========== -->
+    <section id="view-add" class="view">
+      <div class="page-title">
+        <h1>Nuevo Entrenamiento</h1>
+        <p class="subtitle">Registra tu sesión de hoy</p>
+      </div>
+
+      <form id="workout-form" class="card form-card">
+
+        <!-- Fecha y nombre -->
+        <div class="form-row two-cols">
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" id="workout-date" class="input" required />
+          </div>
+          <div class="form-group">
+            <label>Duración (min)</label>
+            <input type="number" id="workout-duration" class="input" placeholder="60" min="1" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Nombre / Descripción</label>
+          <input type="text" id="workout-name" class="input" placeholder="Ej: Pecho y Tríceps" required />
+        </div>
+
+        <!-- Categoría -->
+        <div class="form-group">
+          <label>Categoría</label>
+          <div class="category-selector" id="category-selector">
+            <button type="button" class="cat-btn" data-cat="upper">💪 Parte Superior</button>
+            <button type="button" class="cat-btn" data-cat="lower">🦵 Parte Inferior</button>
+            <button type="button" class="cat-btn" data-cat="fullbody">🏋️ Todo el Cuerpo</button>
+            <button type="button" class="cat-btn" data-cat="cardio">🏃 Cardio</button>
+            <button type="button" class="cat-btn" data-cat="hiit">⚡ HIIT</button>
+            <button type="button" class="cat-btn" data-cat="flexibility">🧘 Flexibilidad</button>
+          </div>
+          <input type="hidden" id="workout-category" required />
+        </div>
+
+        <!-- Intensidad -->
+        <div class="form-group">
+          <label>Intensidad</label>
+          <div class="intensity-selector">
+            <button type="button" class="intensity-btn" data-level="1">😴 Suave</button>
+            <button type="button" class="intensity-btn" data-level="2">🙂 Moderado</button>
+            <button type="button" class="intensity-btn" data-level="3">😤 Intenso</button>
+            <button type="button" class="intensity-btn" data-level="4">🔥 Máximo</button>
+          </div>
+          <input type="hidden" id="workout-intensity" value="2" />
+        </div>
+
+        <!-- Exercises -->
+        <div class="form-group">
+          <div class="exercises-header">
+            <label>Ejercicios</label>
+            <button type="button" class="btn btn-sm btn-outline" id="add-exercise-btn">+ Añadir Ejercicio</button>
+          </div>
+          <div id="exercises-container"></div>
+        </div>
+
+        <!-- Notas -->
+        <div class="form-group">
+          <label>Notas</label>
+          <textarea id="workout-notes" class="input textarea" placeholder="Cómo te has sentido, ajustes, objetivos..."></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline" onclick="showView('dashboard')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Entrenamiento 💾</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ========== HISTORY ========== -->
+    <section id="view-history" class="view">
+      <div class="page-title">
+        <h1>Historial</h1>
+        <p class="subtitle">Todos tus entrenamientos</p>
+      </div>
+
+      <div class="filter-bar">
+        <select id="filter-category" class="input filter-select" onchange="renderHistory()">
+          <option value="">Todas las categorías</option>
+          <option value="upper">💪 Parte Superior</option>
+          <option value="lower">🦵 Parte Inferior</option>
+          <option value="fullbody">🏋️ Todo el Cuerpo</option>
+          <option value="cardio">🏃 Cardio</option>
+          <option value="hiit">⚡ HIIT</option>
+          <option value="flexibility">🧘 Flexibilidad</option>
+        </select>
+        <input type="month" id="filter-month" class="input filter-month" onchange="renderHistory()" />
+        <button class="btn btn-outline btn-sm" onclick="clearFilters()">Limpiar</button>
+      </div>
+
+      <div id="history-list" class="workout-list"></div>
+    </section>
+
+    <!-- ========== STATS ========== -->
+    <section id="view-stats" class="view">
+      <div class="page-title">
+        <h1>Estadísticas</h1>
+        <p class="subtitle">Tu progreso en detalle</p>
+      </div>
+
+      <div class="stats-detail-grid">
+        <div class="card stats-card">
+          <h3>Por Categoría</h3>
+          <div id="chart-by-category" class="bar-chart"></div>
+        </div>
+        <div class="card stats-card">
+          <h3>Por Mes</h3>
+          <div id="chart-by-month" class="bar-chart"></div>
+        </div>
+      </div>
+
+      <div class="card stats-card mt-1">
+        <h3>Ejercicios más frecuentes</h3>
+        <div id="top-exercises" class="top-list"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========== WORKOUT DETAIL MODAL ========== -->
+  <div id="modal-overlay" class="modal-overlay hidden" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="modal-title"></h2>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="modal-delete-btn">Eliminar</button>
+        <button class="btn btn-outline" onclick="closeModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exercise template (hidden) -->
+  <template id="exercise-template">
+    <div class="exercise-item card">
+      <div class="exercise-header">
+        <input type="text" class="input exercise-name" placeholder="Nombre del ejercicio" />
+        <button type="button" class="btn-icon remove-exercise">✕</button>
+      </div>
+      <div class="exercise-fields">
+        <div class="form-group">
+          <label>Series</label>
+          <input type="number" class="input exercise-sets" placeholder="3" min="1" />
+        </div>
+        <div class="form-group">
+          <label>Reps</label>
+          <input type="number" class="input exercise-reps" placeholder="12" min="1" />
+        </div>
+        <div class="form-group">
+          <label>Peso (kg)</label>
+          <input type="number" class="input exercise-weight" placeholder="0" min="0" step="0.5" />
+        </div>
+        <div class="form-group">
+          <label>Duración (min)</label>
+          <input type="number" class="input exercise-duration" placeholder="—" min="0" />
+        </div>
+      </div>
+      <div class="form-group">
+        <input type="text" class="input exercise-notes" placeholder="Notas del ejercicio (opcional)" />
+      </div>
+    </div>
+  </template>
+
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
