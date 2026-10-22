@@ -263,12 +263,39 @@ input[type=range]{accent-color:var(--cyan);height:28px}
     <div class="card"><h3>Series de hoy</h3><div class="sessions" id="sessions"></div></div>
 
     <div class="actions">
-      <button class="btn primary" id="shareimg">Compartir resumen (imagen)</button>
-      <button class="btn" id="sharevid">Compartir replay (vídeo)</button>
+      <button class="btn primary" id="mkreel" style="background:var(--amber);border-color:var(--amber);color:#1d1200">Crear reel para Instagram</button>
+      <button class="btn" id="sharevid">Guardar replay</button>
+      <button class="btn" id="shareimg">Guardar imagen resumen</button>
+      <label class="tog" style="padding:10px 14px"><input type="checkbox" id="reelname"> Nombre del cliente en el reel</label>
     </div>
+    <p class="note" id="sharemsg" role="status"></p>
     <p class="disclaimer">Estimaciones con visión artificial y una sola cámara. La comparación es fiable entre series con la cámara en el mismo sitio; los valores absolutos son aproximados.</p>
   </div>
 </section>
+
+<!-- ================= REEL ================= -->
+<section id="reelview" class="view" hidden aria-labelledby="t-reel">
+  <div class="reelwrap">
+    <div class="reelhead"><span class="pill">FITNESS VLC</span><h2 id="t-reel">Reel para Instagram</h2></div>
+    <canvas id="reelcv" width="1080" height="1920" aria-label="Vista previa del reel"></canvas>
+    <video id="reelout" playsinline controls hidden></video>
+    <div class="reelbar"><div id="reelprog"></div></div>
+    <p class="note" id="reelmsg" role="status">Montando el reel… no cierres esta pantalla.</p>
+    <div class="actions" style="justify-content:center">
+      <button class="btn primary" id="reelsave" hidden style="background:var(--amber);border-color:var(--amber);color:#1d1200">Guardar reel</button>
+      <button class="btn" id="reelclose">Cerrar</button>
+    </div>
+  </div>
+</section>
+<style>
+#reelview{background:#05070a;display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.reelwrap{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;max-width:520px}
+.reelhead{display:flex;align-items:center;gap:12px;align-self:flex-start}
+.reelhead h2{font:700 28px/1 var(--display);margin:0}
+#reelcv,#reelout{height:min(68vh,calc((100vw - 32px) * 16 / 9));aspect-ratio:9/16;width:auto;max-width:100%;border-radius:18px;background:#000;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.reelbar{width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+#reelprog{height:100%;width:0;background:var(--amber);transition:width .2s linear}
+</style>
 
 <script type="module">
 /* =====================================================================
@@ -551,7 +578,7 @@ function savePrefs() { store.set("vlc.prefs", {follow:st.follow, freename:$("#fr
 })();
 renderHistory();
 
-function show(id) { ["setup", "live", "summary"].forEach(v => $("#" + v).hidden = v !== id); }
+function show(id) { ["setup", "live", "summary", "reelview"].forEach(v => $("#" + v).hidden = v !== id); }
 
 $("#start").addEventListener("click", () => { st.file = null; startSet(); });
 $("#filebtn").addEventListener("click", () => $("#file").click());
@@ -562,15 +589,47 @@ $("#cancel").addEventListener("click", () => { endSet(true); });
 $("#finish").addEventListener("click", () => endSet(false));
 
 /* ---------------- audio ---------------- */
-let actx = null;
-function beep(freq = 880, dur = 0.09, vol = 0.22) {
+// iOS: audio must be unlocked inside a tap, and "playback" makes it sound even with the silent switch on
+let actx = null, bus = null, recDest = null;
+function unlockAudio() {
+  try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch {}
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = freq; o.type = "sine";
-    g.gain.setValueAtTime(vol, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
-    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + dur + 0.02);
+    if (!bus) { bus = actx.createGain(); bus.gain.value = 1; bus.connect(actx.destination); recDest = actx.createMediaStreamDestination ? actx.createMediaStreamDestination() : null; if (recDest) bus.connect(recDest); }
+    if (actx.state !== "running") actx.resume();
+    const b = actx.createBuffer(1, 1, 22050), src = actx.createBufferSource(); src.buffer = b; src.connect(actx.destination); src.start(0);
   } catch {}
 }
+document.addEventListener("touchend", unlockAudio, {passive:true});
+document.addEventListener("click", unlockAudio);
+function tone(freq, dur, vol = 0.25, type = "sine", when = 0, slideTo = null) {
+  if (!actx || !bus) return; if (actx.state !== "running") actx.resume();
+  const t = actx.currentTime + when, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t); if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.05);
+}
+function noise(dur, vol = 0.3, f0 = 400, f1 = 4000, when = 0, q = 0.8) {
+  if (!actx || !bus) return;
+  const t = actx.currentTime + when, n = Math.floor(actx.sampleRate * dur), buf = actx.createBuffer(1, n, actx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const src = actx.createBufferSource(), bp = actx.createBiquadFilter(), g = actx.createGain(); src.buffer = buf; bp.type = "bandpass"; bp.Q.value = q;
+  bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.9);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(bp).connect(g).connect(bus); src.start(t); src.stop(t + dur + 0.05);
+}
+const SFX = {
+  rep:() => { tone(1320, 0.09, 0.28); tone(2640, 0.06, 0.08, "sine", 0.01); },
+  ready:() => { tone(880, 0.1, 0.25); tone(1320, 0.14, 0.25, "sine", 0.11); },
+  alert:() => { tone(440, 0.22, 0.32, "square"); tone(440, 0.22, 0.32, "square", 0.28); },
+  whoosh:() => noise(0.45, 0.35, 300, 5000),
+  whooshDown:() => noise(0.4, 0.3, 5000, 300),
+  hit:() => { tone(120, 0.45, 0.6, "sine", 0, 45); noise(0.18, 0.25, 2000, 400); },
+  tick:() => tone(2200, 0.03, 0.12, "triangle"),
+  pop:() => tone(660, 0.12, 0.3, "triangle", 0, 1320),
+  riser:() => { noise(1.4, 0.25, 200, 6000, 0, 1.2); tone(220, 1.4, 0.08, "sawtooth", 0, 880); }
+};
+function beep(freq = 880, dur = 0.09, vol = 0.22) { tone(freq, dur, vol); }
 function say(text) {
   if (!st.voice || !("speechSynthesis" in window)) return;
   try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = "es-ES"; u.rate = 1.15; speechSynthesis.speak(u); } catch {}
@@ -612,8 +671,8 @@ async function startSet() {
   st.load = +$("#load").value || null; st.vlTarget = +$("#vl").value; st.voice = $("#voice").checked;
   const rearNow = $("#rear").checked; if (rearNow !== st.rear) { stopCamera(); st.rear = rearNow; }
   st.autoEnd = $("#autoend").checked; st.freeName = $("#freename").value.trim(); savePrefs();
+  unlockAudio();
   try { if (st.voice && "speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch {}
-  beep(0, 0.01, 0.0001);
   show("live"); $("#loading").hidden = false; $("#loading").textContent = "Cargando el modelo de detección…";
   try {
     await ensureModel();
@@ -633,7 +692,7 @@ async function startSet() {
     phase:"calibrate", calib:[], ppm:null, reps:[], frames:[], trail:[], curve:[], lastMoveT:0, toast:null, stopAlerted:false,
     engine:(def.arms || def.free) ? null : new RepEngine(def.minAmp), arms:def.arms ? {l:new RepEngine(def.minAmp), r:new RepEngine(def.minAmp)} : null,
     free:def.free ? {ring:{}, lock:st.follow !== "auto" ? st.follow : null, forced:st.follow !== "auto", engine:null, selT:0, ampT:0} : null,
-    pendingArm:null, ring:[], snaps:[], snapT:0, recorder:null, chunks:[], videoBlob:null, mime:"", ended:false, lastP:null, lastSeen:0
+    pendingArm:null, ring:[], boxHist:[], snaps:[], snapT:0, recorder:null, chunks:[], videoBlob:null, mime:"", ended:false, lastP:null, lastSeen:0
   };
   filters.forEach(f => { f.x = new OneEuro(); f.y = new OneEuro(); });
   st.running = true; requestAnimationFrame(loop);   // the recorder starts on the first drawn frame, once the stage has its real size
@@ -652,9 +711,12 @@ function startRecorder() {
   const types = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
   const mime = types.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } }) || "";
   try {
-    const rec = new MediaRecorder(recCv.captureStream(30), mime ? {mimeType:mime, videoBitsPerSecond:6e6} : undefined);
+    const stream = recCv.captureStream(30);
+    if (recDest) recDest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr));
+    const rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:6e6} : undefined);
     rec.ondataavailable = e => { if (e.data && e.data.size) set.chunks.push(e.data); };
     rec.start(500); set.recorder = rec; set.mime = rec.mimeType || mime || "video/webm";
+    set.recT0 = clock(); set.rate = st.file ? $("#video").playbackRate : 1;
   } catch {}
 }
 
@@ -694,7 +756,6 @@ function loop() {
   }
   draw(now);
   if (!set.recTried && v.readyState >= 2 && cv.width > 300) startRecorder();
-  else if (set.recorder) copyToRec();
   requestAnimationFrame(loop);
 }
 function copyToRec() {
@@ -716,6 +777,7 @@ function pushRing(t) {
     if (pts.length > 6) { const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]); box = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }
   }
   set.ring.push({t, c, box});
+  if (box) set.boxHist.push({t, box});
 }
 function snapAt(t) {
   if (!set.ring.length) return snapStage();
@@ -752,7 +814,7 @@ function process(P, t) {
       const still = arr.length > 15 && Math.max(...arr) - Math.min(...arr) < mean * 0.03 && (t - set.calib[0].t) > 0.9;
       if (still) {
         set.ppm = mean / (0.87 * st.height / 100);
-        set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; beep(1320, 0.12); say("Vamos");
+        set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; SFX.ready(); say("Vamos");
       }
     } else set.calib = [];
     // fallback: feet out of frame (e.g. curl close to the camera) → scale from torso ≈ 0.29·height
@@ -760,7 +822,7 @@ function process(P, t) {
     if (t - set.firstSeen > 3.5 && visibleAll(P, [L.ls, L.rs, L.lh, L.rh], 0.5) && visibleAll(P, def.needs, 0.4)) {
       const torso = dist(mid(P[L.ls], P[L.rs]), mid(P[L.lh], P[L.rh]));
       set.ppm = torso / (0.29 * st.height / 100); set.approxCal = true;
-      set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; beep(1320, 0.12); say("Vamos");
+      set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; SFX.ready(); say("Vamos");
     }
     return;
   }
@@ -870,13 +932,15 @@ function onRep(rep, t) {
   // snapshot of the stage at the end of the concentric (overlay included)
   let keyT = rep[def.key] ?? rep.tp;
   if (def.free && set.curve.length) { const rest = set.curve[0].s; keyT = Math.abs(rep.sMax - rest) >= Math.abs(rep.sMin - rest) ? rep.tp : rep.tv; }  // the extreme far from the resting position
-  rep.snap = snapAt(keyT);
+  rep.snap = snapAt(keyT); rep.keyT = keyT;
+  const kf = nearest(set.frames, keyT);
+  if (kf) { rep.keyPN = kf.P.map(p => ({x:X(p) / view.W, y:Y(p) / view.H, v:p.v})); const h = def.hud(kf.P, {ppm:set.ppm}); rep.keyAngle = h ? {label:h.label, value:h.value} : null; }
   if (rep.flags.length) set.toast = {text:`Rep ${rep.n} · ${rep.flags[0]}`, t, col:C.amber};
   if (rep.loss >= st.vlTarget && set.reps.length > 1) {
-    beep(440, 0.25, 0.3); setTimeout(() => beep(440, 0.25, 0.3), 280);
+    SFX.alert();
     if (!set.stopAlerted) { say(`${rep.n}. Para, pérdida del ${Math.round(rep.loss)} por ciento`); set.stopAlerted = true; }
     set.toast = {text:`Pérdida ${Math.round(rep.loss)} % · objetivo ${st.vlTarget} % → corta la serie`, t, col:C.red};
-  } else { beep(1100, 0.08); say(String(rep.n)); }
+  } else { SFX.rep(); say(String(rep.n)); }
 }
 
 function snapStage() {
@@ -918,6 +982,7 @@ function draw(now) {
   const P = set && set.lastP;
   if (P) drawBody(P, now);
   if (set && set.phase === "count" && now - (set.ringT || 0) > 0.08) { set.ringT = now; pushRing(now); }  // key frames without HUD
+  if (set && set.recorder) copyToRec();   // the replay is recorded clean (video + skeleton), the reel adds its own graphics
   drawHUD(now);
 }
 
@@ -1064,7 +1129,7 @@ function buildSummary(s) {
   return {
     id:Date.now(), date:new Date(), ex:s.ex, name:def.free ? (st.freeName || def.name) : def.name, unit:def.unit, sig:def.free ? FREE_SIG[s.free.lock].u : def.sig, client:st.client, load:st.load, n:s.n, vlTarget:st.vlTarget,
     reps, best, bestI, worst, worstI, lastLoss, maxLoss, finalLoss, ampMean, ampCV, deepI, tut, flagCount,
-    curve:s.curve, video:s.videoBlob, mime:s.mime, view:reps[0].ev.view, t0:s.tStartCount, approxCal:!!s.approxCal,
+    curve:s.curve, video:s.videoBlob, mime:s.mime, recT0:s.recT0, rate:s.rate || 1, boxHist:s.boxHist, stageAR:cv.width / cv.height, view:reps[0].ev.view, t0:s.tStartCount, approxCal:!!s.approxCal,
     free:!!def.free, follow:def.free ? FREE_SIG[s.free.lock].label : null, cycleMed:(() => { const c = reps.map(r => r.cycle).filter(Boolean); return c.length ? pct(c, 0.5) : null; })(),
     cycleCV:(() => { const c = reps.map(r => r.cycle).filter(Boolean); if (c.length < 2) return null; const m = c.reduce((a, b) => a + b, 0) / c.length; return Math.sqrt(c.reduce((a, b) => a + (b - m) ** 2, 0) / c.length) / m * 100; })()
   };
@@ -1135,7 +1200,9 @@ function renderSummary(sm) {
 
   $("#shareimg").onclick = () => shareImage(sm);
   $("#sharevid").onclick = () => shareVideo(sm);
-  $("#sharevid").hidden = !sm.video;
+  $("#sharevid").hidden = !sm.video; $("#mkreel").hidden = !sm.video;
+  $("#mkreel").onclick = () => makeReel(sm);
+  $("#shareimg").disabled = true; prepFiles(sm);
 }
 
 function romTable(sm) {
@@ -1220,13 +1287,31 @@ async function buildCard(sm) {
   t("personaltrainervlc.com", W - M, 1850, `600 20px ${FB}`, C.muted, "right");
   return new Promise(r => c.toBlob(r, "image/png"));
 }
-async function shareBlob(blob, name, title) {
-  const file = new File([blob], name, {type:blob.type});
-  try { if (navigator.canShare && navigator.canShare({files:[file]})) { await navigator.share({files:[file], title}); return; } } catch (e) { if (e && e.name === "AbortError") return; }
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+// Files are built BEFORE the tap, so navigator.share runs inside the gesture (iOS refuses it after an await)
+function fileOf(blob, name) { return new File([blob], name, {type:(blob.type || "").split(";")[0] || "application/octet-stream"}); }
+function shareFile(file, title) {
+  const msg = $("#sharemsg"); msg.textContent = "";
+  const fallback = () => {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+    msg.textContent = "Guardado en Archivos › Descargas. Desde ahí: Compartir › Guardar vídeo/imagen para tenerlo en Fotos.";
+  };
+  try {
+    if (navigator.canShare && navigator.canShare({files:[file]})) {
+      navigator.share({files:[file], title}).then(() => { msg.textContent = "Listo. En el menú elige «Guardar vídeo» o «Guardar imagen» para tenerlo en Fotos."; })
+        .catch(e => { if (!e || e.name !== "AbortError") fallback(); });
+      return;
+    }
+  } catch {}
+  fallback();
 }
-async function shareImage(sm) { const b = await buildCard(sm); shareBlob(b, `${slug(sm)}.png`, `${sm.name} · ${sm.client || "resumen"}`); }
-function shareVideo(sm) { if (!sm.video) return; const ext = sm.mime.includes("mp4") ? "mp4" : "webm"; shareBlob(sm.video, `${slug(sm)}.${ext}`, `${sm.name} · replay`); }
+async function prepFiles(sm) {
+  const ext = (sm.mime || "").includes("mp4") ? "mp4" : "webm";
+  if (sm.video) sm.videoFile = fileOf(sm.video, `${slug(sm)}-replay.${ext}`);
+  try { sm.cardFile = fileOf(await buildCard(sm), `${slug(sm)}.png`); } catch {}
+  $("#shareimg").disabled = !sm.cardFile;
+}
+function shareImage(sm) { if (sm.cardFile) shareFile(sm.cardFile, `${sm.name} · resumen`); }
+function shareVideo(sm) { if (sm.videoFile) shareFile(sm.videoFile, `${sm.name} · replay`); }
 function slug(sm) { return `${(sm.client || "cliente").toLowerCase().replace(/[^a-z0-9]+/gi, "-")}-${sm.ex}-serie${sm.n}`; }
 
 /* ---------------- history (this device only) ---------------- */
@@ -1242,6 +1327,285 @@ function renderHistory() {
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;"}[c])); }
 
+
+/* =====================================================================
+   REEL 9:16 para Instagram — se monta en el propio móvil a partir del
+   replay limpio (vídeo + esqueleto) y los datos de cada repetición.
+   ===================================================================== */
+const RW = 1080, RH = 1920, SAFE = {x0:140, x1:940, top:240, bot:1560};   // Instagram crops the sides on tall phones
+let reelBusy = false;
+$("#reelclose").addEventListener("click", () => { reelBusy = false; show("summary"); });
+function easeOut(t) { t = clamp(t, 0, 1); return 1 - Math.pow(1 - t, 3); }
+function easeInOut(t) { t = clamp(t, 0, 1); return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+function waitEv(el, ev, ms = 2500) { return new Promise(r => { let done = false; const f = () => { if (!done) { done = true; el.removeEventListener(ev, f); r(); } }; el.addEventListener(ev, f); setTimeout(f, ms); }); }
+
+async function makeReel(sm) {
+  if (reelBusy || !sm.video) return; reelBusy = true; unlockAudio();
+  show("reelview"); $("#reelout").hidden = true; $("#reelcv").hidden = false; $("#reelsave").hidden = true;
+  $("#reelmsg").textContent = "Montando el reel… no cierres esta pantalla."; $("#reelprog").style.width = "0%";
+  const showName = $("#reelname").checked && sm.client;
+  const cvR = $("#reelcv"), g = cvR.getContext("2d");
+  const src = document.createElement("video"); src.muted = true; src.playsInline = true; src.preload = "auto";
+  src.src = URL.createObjectURL(sm.video);
+  await waitEv(src, "loadeddata", 6000);
+  if (!isFinite(src.duration)) { src.currentTime = 1e7; await waitEv(src, "durationchange", 2000); }   // MediaRecorder webm has no duration
+  const VW = src.videoWidth || 720, VH = src.videoHeight || 1280;
+  const rate = sm.rate || 1, vt = t => (t - sm.recT0) / rate;           // analysis clock → replay time
+  const dur = isFinite(src.duration) ? src.duration : vt(sm.reps[sm.reps.length - 1].tp) + 1;
+  const def = EX[sm.ex];
+
+  // ---- recorder for the reel (canvas + sound effects) ----
+  const types = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+  const mime = types.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } }) || "";
+  const stream = cvR.captureStream(30); if (recDest) recDest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr));
+  const chunks = [], rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:9e6} : undefined);
+  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+
+  // ---- body-following virtual camera ----
+  const boxAt = v => {
+    const t = sm.recT0 + v * rate, H = sm.boxHist; if (!H || !H.length) return [0.15, 0.05, 0.85, 0.95];
+    let b = H[0]; for (const h of H) { if (Math.abs(h.t - t) < Math.abs(b.t - t)) b = h; if (h.t > t + 0.3) break; } return b.box;
+  };
+  const cam = {cx:VW / 2, cy:VH / 2, h:VH};
+  function aimCam(v, z, snap) {
+    const [x0, y0, x1, y1] = boxAt(v), bh = (y1 - y0) * VH, bw = (x1 - x0) * VW;
+    let h = Math.max(bh * 1.38, bw * 1.25 * 16 / 9) / z;
+    const tx = (x0 + x1) / 2 * VW, ty = (y0 + y1) / 2 * VH - bh * 0.02, k = snap ? 1 : 0.12;
+    cam.cx += (tx - cam.cx) * k; cam.cy += (ty - cam.cy) * k; cam.h += (h - cam.h) * k;
+  }
+  const toR = (x, y) => { const sc = RH / cam.h; return [(x - cam.cx) * sc + RW / 2, (y - cam.cy) * sc + RH / 2]; };
+  const tiny = document.createElement("canvas"); tiny.width = 54; tiny.height = 96; const tg = tiny.getContext("2d");
+  function drawSrc(dim = 0, blurOnly = false) {
+    // blurred backdrop (fills any area the source doesn't cover)
+    const cs = Math.max(54 / VW, 96 / VH); tg.drawImage(src, (54 - VW * cs) / 2, (96 - VH * cs) / 2, VW * cs, VH * cs);
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high"; g.drawImage(tiny, 0, 0, RW, RH);
+    g.fillStyle = "rgba(4,6,9,.55)"; g.fillRect(0, 0, RW, RH);
+    if (!blurOnly) { const sc = RH / cam.h, [dx, dy] = toR(0, 0); g.drawImage(src, dx, dy, VW * sc, VH * sc); }
+    grade(dim);
+  }
+  function grade(dim) {
+    let gr = g.createRadialGradient(RW / 2, RH * 0.46, RH * 0.22, RW / 2, RH * 0.5, RH * 0.75);
+    gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, `rgba(0,0,0,${0.55 + dim * 0.3})`); g.fillStyle = gr; g.fillRect(0, 0, RW, RH);
+    g.globalCompositeOperation = "soft-light"; g.fillStyle = "rgba(20,90,110,.35)"; g.fillRect(0, 0, RW, RH * 0.5);
+    g.fillStyle = "rgba(255,150,60,.18)"; g.fillRect(0, RH * 0.5, RW, RH * 0.5); g.globalCompositeOperation = "source-over";
+    gr = g.createLinearGradient(0, 0, 0, 520); gr.addColorStop(0, "rgba(0,0,0,.65)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(0, 0, RW, 520);
+    gr = g.createLinearGradient(0, RH, 0, RH - 820); gr.addColorStop(0, "rgba(0,0,0,.8)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(0, RH - 820, RW, 820);
+    if (dim) { g.fillStyle = `rgba(0,0,0,${dim * 0.35})`; g.fillRect(0, 0, RW, RH); }
+  }
+  const T = (str, x, y, font, col, al = "left", base = "alphabetic", alpha = 1) => { g.globalAlpha = alpha; g.font = font; g.fillStyle = col; g.textAlign = al; g.textBaseline = base; g.fillText(str, x, y); g.globalAlpha = 1; };
+  const RR = (x, y, w, h, r) => { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); };
+  const fitFont = (str, maxW, size, weight = 700, fam = FD) => { do { g.font = `${weight} ${size}px ${fam}`; if (g.measureText(str).width <= maxW) break; size -= 4; } while (size > 40); return g.font; };
+  function brand(alpha = 1, chip = null) {
+    g.globalAlpha = alpha; RR(SAFE.x0, SAFE.top, 236, 54, 27); g.fillStyle = C.brand; g.fill();
+    T("FITNESS VLC", SAFE.x0 + 118, SAFE.top + 28, `700 26px ${FB}`, "#fff", "center", "middle", alpha);
+    if (chip) { g.font = `700 24px ${FB}`; const w = g.measureText(chip).width + 44; RR(SAFE.x1 - w, SAFE.top + 2, w, 50, 25); g.fillStyle = "rgba(0,0,0,.55)"; g.fill(); g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 2; g.stroke(); T(chip, SAFE.x1 - w / 2, SAFE.top + 28, `700 24px ${FB}`, "#fff", "center", "middle", alpha); }
+    g.globalAlpha = 1;
+  }
+  const exName = sm.name.toUpperCase();
+  const serieTxt = [`SERIE ${sm.n}`, sm.load ? `${sm.load} KG` : null].filter(Boolean).join(" · ");
+  const vUnit = (sm.unit === "°/s" && !sm.free) ? "°/s" : "m/s", vNum = v => vUnit === "°/s" ? String(Math.round(v)) : fmt(v, 2);
+  const vLabel = sm.free ? "VELOCIDAD PICO" : "VELOCIDAD DE SUBIDA";
+
+  // ---- time helpers ----
+  const TOTAL_EST = 30; let elapsed0 = performance.now();
+  const prog = () => { $("#reelprog").style.width = Math.min(99, (performance.now() - elapsed0) / 10 / TOTAL_EST) + "%"; };
+  function hold(sec, fn) {
+    return new Promise(res => { const t0 = performance.now(); const step = () => { if (!reelBusy) return res(); const e = (performance.now() - t0) / 1000; fn(e, e / sec); prog(); if (e >= sec) return res(); requestAnimationFrame(step); }; step(); });
+  }
+  async function seek(t) { src.pause(); src.currentTime = clamp(t, 0, Math.max(0, dur - 0.05)); await waitEv(src, "seeked", 1500); }
+  async function play(a, b, pr, fn) {
+    await seek(a); src.playbackRate = pr; try { await src.play(); } catch {}
+    return new Promise(res => { const guard = performance.now() + ((b - a) / pr + 3) * 1000;
+      const step = () => { if (!reelBusy) { src.pause(); return res(); } fn(src.currentTime); prog(); if (src.currentTime >= b || src.ended || performance.now() > guard) { src.pause(); return res(); } requestAnimationFrame(step); }; step(); });
+  }
+
+  // ---- figures from the set ----
+  const reps = sm.reps, best = reps[sm.bestI];
+  const repT = reps.map(r => vt(r.tp));
+  const a0 = Math.max(0, vt(reps[0].tv) - (reps[0].tp - reps[0].tv) * 0.9 / rate - 0.4), a1 = Math.min(dur - 0.05, vt(reps[reps.length - 1].tp) + 0.5);
+  const realLen = (a1 - a0) * rate, speed = clamp(realLen / 10, 1, 2), prSet = Math.min(speed / rate, 4);
+  const flagRep = reps.filter(r => r.flags && r.flags.length).sort((x, y) => y.flags.length - x.flags.length)[0];
+
+  rec.start(250);
+  // ===== 1 · INTRO =====
+  await seek(vt(best.keyT ?? best.tp)); aimCam(vt(best.keyT ?? best.tp), 1, true);
+  SFX.riser();
+  await hold(2.4, (e, p) => {
+    drawSrc(1.5);
+    // scan line
+    const sy = RH * easeInOut(clamp(e / 1.8, 0, 1)); const gl = g.createLinearGradient(0, sy - 140, 0, sy + 6);
+    gl.addColorStop(0, "rgba(61,214,245,0)"); gl.addColorStop(1, "rgba(61,214,245,.45)"); g.fillStyle = gl; g.fillRect(0, sy - 140, RW, 146);
+    g.fillStyle = C.cyan; g.fillRect(0, sy, RW, 4);
+    // dot grid
+    g.fillStyle = "rgba(255,255,255,.08)"; for (let x = 60; x < RW; x += 60) for (let y = 60; y < sy; y += 60) g.fillRect(x, y, 3, 3);
+    brand(easeOut(e / 0.4));
+    const a1_ = easeOut((e - 0.25) / 0.5), up = 60 * (1 - a1_);
+    T("ANÁLISIS BIOMECÁNICO · IA", SAFE.x0, 820 + up, `700 34px ${FB}`, C.cyan, "left", "alphabetic", a1_);
+    const a2 = easeOut((e - 0.45) / 0.55), up2 = 80 * (1 - a2);
+    T(exName, SAFE.x0, 990 + up2, fitFont(exName, SAFE.x1 - SAFE.x0, 190), "#fff", "left", "alphabetic", a2);
+    const a3 = easeOut((e - 0.8) / 0.5);
+    T([showName ? sm.client : null, serieTxt].filter(Boolean).join(" · "), SAFE.x0, 1070, `600 42px ${FB}`, "rgba(238,242,246,.9)", "left", "alphabetic", a3);
+    const a4 = easeOut((e - 1.1) / 0.5);
+    T("33 puntos corporales · velocidad · rango de movimiento", SAFE.x0, 1140, `500 30px ${FB}`, C.muted, "left", "alphabetic", a4);
+    if (e > 2.2) { g.fillStyle = `rgba(255,255,255,${(e - 2.2) / 0.2 * 0.6})`; g.fillRect(0, 0, RW, RH); }
+  });
+  SFX.whoosh();
+
+  // ===== 2 · THE SET (real speed or a bit faster) =====
+  let shown = 0, popT = -9;
+  const pops = [];
+  aimCam(a0, 1, true);
+  await play(a0, a1, prSet, v => {
+    aimCam(v, 1, false); drawSrc(0);
+    while (shown < reps.length && v >= repT[shown]) { pops.push({n:shown, t:performance.now()}); shown++; popT = performance.now(); SFX.pop(); SFX.tick(); }
+    brand(1, serieTxt);
+    T(exName, SAFE.x0, SAFE.top + 120, fitFont(exName, 620, 64), "#fff");
+    if (speed > 1.05) { const s2 = `x${fmt(speed, 1)}`; RR(SAFE.x0, SAFE.top + 140, 92, 42, 21); g.fillStyle = "rgba(255,255,255,.16)"; g.fill(); T(s2, SAFE.x0 + 46, SAFE.top + 161, `700 24px ${FB}`, "#fff", "center", "middle"); }
+    // rep counter with pop
+    const pk = clamp((performance.now() - popT) / 260, 0, 1), sc = 1 + 0.35 * (1 - easeOut(pk));
+    g.save(); g.translate(SAFE.x1, 1500); g.scale(sc, sc); T(String(shown), 0, 0, `700 300px ${FD}`, "#fff", "right"); g.restore();
+    T("REPS", SAFE.x1 - 6, 1544, `700 30px ${FB}`, C.muted, "right");
+    // velocity bars
+    const maxV = Math.max(...reps.map(r => r.meanV)), bw = Math.min(70, 460 / reps.length - 10);
+    T(vLabel, SAFE.x0, 1310, `700 26px ${FB}`, C.muted);
+    if (shown) { const r = reps[shown - 1]; T(vNum(r.meanV), SAFE.x0, 1395, `700 92px ${FD}`, "#fff"); g.font = `700 92px ${FD}`; T(vUnit, SAFE.x0 + g.measureText(vNum(r.meanV)).width + 14, 1395, `600 34px ${FB}`, C.muted); }
+    for (let i = 0; i < shown; i++) { const r = reps[i], h = 120 * r.meanV / maxV, x = SAFE.x0 + i * (bw + 10); g.fillStyle = r.loss >= sm.vlTarget ? C.red : r.loss >= sm.vlTarget * 0.6 ? C.amber : C.cyan; RR(x, 1544 - h, bw, h, 8); g.fill(); }
+    // floating value near the body for each new rep
+    for (const pp of pops) { const age = (performance.now() - pp.t) / 1000; if (age > 1.1) continue; const [bx, by] = toR((boxAt(v)[0] + boxAt(v)[2]) / 2 * VW, boxAt(v)[1] * VH); const r = reps[pp.n];
+      T(`${vNum(r.meanV)} ${vUnit}`, clamp(bx, SAFE.x0 + 160, SAFE.x1 - 160), Math.max(SAFE.top + 260, by - 40 - age * 90), `700 64px ${FD}`, r.loss >= sm.vlTarget ? C.red : C.cyan, "center", "alphabetic", 1 - easeOut((age - 0.6) / 0.5)); }
+  });
+
+  // ===== 3 · TRANSITION =====
+  SFX.whoosh();
+  await hold(0.6, (e, p) => {
+    drawSrc(0.8);
+    const a = easeOut(p * 2);
+    T("MEJOR REPETICIÓN", RW / 2, 900, fitFont("MEJOR REPETICIÓN", 860, 120), "#fff", "center", "alphabetic", a);
+    T(`REP ${best.n} · CÁMARA LENTA`, RW / 2, 980, `700 40px ${FB}`, C.amber, "center", "alphabetic", a);
+    if (p < 0.25) { g.fillStyle = `rgba(255,255,255,${0.7 * (1 - p / 0.25)})`; g.fillRect(0, 0, RW, RH); }
+  });
+
+  // ===== 4 · SLOW MOTION of the best rep =====
+  const conc = (best.tp - best.tv) / rate, sA = Math.max(0, vt(best.tv) - Math.min(1.3, conc * 1.1) - 0.15), sB = Math.min(dur - 0.05, vt(best.tp) + 0.3);
+  aimCam(sA, 1.12, true);
+  await play(sA, sB, 0.45 / rate, v => {
+    aimCam(v, 1.12, false); drawSrc(0);
+    brand(1, "CÁMARA LENTA 0,45x");
+    T(`REP ${best.n}`, SAFE.x0, SAFE.top + 130, `700 90px ${FD}`, "#fff");
+    if (v >= vt(best.tv)) { const a = easeOut((v - vt(best.tv)) * rate / 0.4); T(vLabel, SAFE.x0, 1390, `700 28px ${FB}`, C.muted, "left", "alphabetic", a); T(`${vNum(best.meanV)} ${vUnit}`, SAFE.x0, 1500, `700 120px ${FD}`, C.cyan, "left", "alphabetic", a); }
+  });
+
+  // ===== 5 · FREEZE on the key position with data =====
+  const keyFreeze = async (r, sec, kind) => {
+    const kv = vt(r.keyT ?? r.tp); await seek(kv); aimCam(kv, 1.12, true);
+    SFX.hit();
+    const P = r.keyPN ? r.keyPN.map(p => ({x:p.x * VW, y:p.y * VH, v:p.v})) : null;
+    await hold(sec, (e, p) => {
+      const z = 1.12 + 0.16 * easeInOut(p); aimCam(kv, z, false); cam.h += (cam.h * (1.12 / z) - cam.h) * 0; drawSrc(0.25);
+      if (P) {
+        const line = (a, b, col, w, k2) => { if (P[a].v < 0.3 || P[b].v < 0.3) return; const dx = P[b].x - P[a].x, dy = P[b].y - P[a].y; const [x1, y1] = toR(P[a].x - dx * k2, P[a].y - dy * k2), [x2, y2] = toR(P[b].x + dx * k2, P[b].y + dy * k2); g.strokeStyle = col; g.lineWidth = w; g.lineCap = "round"; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+        const grow = easeOut(e / 0.5);
+        g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 12;
+        line(L.rs, L.ls, C.cyan, 10, 0.45 * grow); line(L.rh, L.lh, C.amber, 10, 0.7 * grow);
+        g.shadowBlur = 0;
+        const h = def.hud(P, {ppm:1});
+        if (h && h.arc && h.arc.every(q => q.v > 0.3)) {
+          const [A, B, Cc] = h.arc.map(q => toR(q.x, q.y)); const a1x = Math.atan2(A[1] - B[1], A[0] - B[0]), a2x = Math.atan2(Cc[1] - B[1], Cc[0] - B[0]);
+          let d = a2x - a1x; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+          const rr2 = 90 + 14 * Math.sin(e * 6);
+          g.fillStyle = kind === "flag" ? "rgba(255,77,77,.25)" : "rgba(61,214,245,.25)"; g.strokeStyle = kind === "flag" ? C.red : C.cyan; g.lineWidth = 6;
+          g.beginPath(); g.moveTo(B[0], B[1]); g.arc(B[0], B[1], rr2, a1x, a1x + d * grow, d < 0); g.closePath(); g.fill(); g.stroke();
+          g.beginPath(); g.arc(B[0], B[1], 16, 0, 7); g.fillStyle = "#fff"; g.fill();
+        }
+      }
+      brand(1, kind === "flag" ? "PUNTO A MEJORAR" : "POSICIÓN CLAVE");
+      // callout card
+      const ca = easeOut((e - 0.25) / 0.45), cy = 1200 + 60 * (1 - ca);
+      g.globalAlpha = ca; RR(SAFE.x0, cy, SAFE.x1 - SAFE.x0, 300, 32); g.fillStyle = "rgba(8,11,15,.86)"; g.fill(); g.strokeStyle = kind === "flag" ? C.red : C.cyan; g.lineWidth = 4; g.stroke(); g.globalAlpha = 1;
+      if (kind === "flag") {
+        T("PUNTO A MEJORAR · REP " + r.n, SAFE.x0 + 40, cy + 70, `700 30px ${FB}`, C.red, "left", "alphabetic", ca);
+        T(r.flags[0], SAFE.x0 + 40, cy + 165, fitFont(r.flags[0], SAFE.x1 - SAFE.x0 - 80, 84), "#fff", "left", "alphabetic", ca);
+        T("Lo corregimos en la siguiente serie", SAFE.x0 + 40, cy + 240, `500 34px ${FB}`, C.muted, "left", "alphabetic", ca);
+      } else {
+        T(vLabel, SAFE.x0 + 40, cy + 70, `700 28px ${FB}`, C.muted, "left", "alphabetic", ca);
+        T(vNum(r.meanV), SAFE.x0 + 40, cy + 200, `700 150px ${FD}`, C.cyan, "left", "alphabetic", ca);
+        g.font = `700 150px ${FD}`; T(vUnit, SAFE.x0 + 52 + g.measureText(vNum(r.meanV)).width, cy + 200, `600 44px ${FB}`, C.muted, "left", "alphabetic", ca);
+        const rt = sm.free ? (sm.cycleMed ? `${Math.round(60 / sm.cycleMed)} rep/min` : "") : (sm.sig === "°" ? `${Math.round(r.amp)}° de rango` : `${Math.round(r.amp * 100)} cm de recorrido`);
+        T(rt, SAFE.x1 - 40, cy + 120, `700 46px ${FD}`, "#fff", "right", "alphabetic", ca);
+        T(`Rep ${r.n} de ${reps.length}`, SAFE.x1 - 40, cy + 250, `500 30px ${FB}`, C.muted, "right", "alphabetic", ca);
+      }
+    });
+  };
+  await keyFreeze(best, 2.8, "best");
+  if (flagRep) { SFX.whooshDown(); await keyFreeze(flagRep, 2.6, "flag"); }
+
+  // ===== 6 · STATS =====
+  SFX.whoosh();
+  const vd = verdictOf(sm), L1 = Math.round(sm.finalLoss), tgt = sm.vlTarget;
+  const head = L1 < 10 ? "MARGEN PARA SUBIR CARGA" : L1 < tgt ? "ZONA DE TRABAJO ÓPTIMA" : L1 < tgt + 10 ? "SERIE AL LÍMITE" : "FATIGA ALTA";
+  const stats = sm.free
+    ? [["REPS", reps.length, 0, ""], ["RITMO", sm.cycleMed ? 60 / sm.cycleMed : 0, 0, "/min"], ["VEL. PICO", sm.best, 2, " m/s"], ["PÉRDIDA", sm.finalLoss, 0, " %"]]
+    : [["REPS", reps.length, 0, ""], ["MEJOR VEL.", sm.best, vUnit === "°/s" ? 0 : 2, " " + vUnit], ["PÉRDIDA", sm.finalLoss, 0, " %"], [sm.sig === "°" ? "RANGO" : "RECORRIDO", sm.sig === "°" ? sm.ampMean : sm.ampMean * 100, 0, sm.sig === "°" ? "°" : " cm"]];
+  let ticked = 0;
+  await hold(3.4, (e, p) => {
+    drawSrc(0.6, true);
+    brand(1, serieTxt);
+    T("RESULTADO DE LA SERIE", SAFE.x0, 470, `700 36px ${FB}`, C.cyan, "left", "alphabetic", easeOut(e / 0.3));
+    T(exName, SAFE.x0, 560, fitFont(exName, SAFE.x1 - SAFE.x0, 96), "#fff", "left", "alphabetic", easeOut(e / 0.4));
+    stats.forEach(([l, v, d, u], i) => {
+      const a = easeOut((e - 0.2 - i * 0.18) / 0.4); if (a <= 0) return; if (a > 0.05 && ticked <= i) { ticked = i + 1; SFX.tick(); }
+      const tw = (SAFE.x1 - SAFE.x0 - 20) / 2, x = SAFE.x0 + (i % 2) * (tw + 20), y = 620 + Math.floor(i / 2) * 250 + 40 * (1 - a);
+      g.globalAlpha = a; RR(x, y, tw, 220, 28); g.fillStyle = "rgba(10,14,19,.82)"; g.fill(); g.strokeStyle = "rgba(255,255,255,.16)"; g.lineWidth = 2; g.stroke(); g.globalAlpha = 1;
+      const cnt = v * easeOut((e - 0.3 - i * 0.18) / 0.8);
+      T(l, x + 32, y + 58, `700 28px ${FB}`, C.muted, "left", "alphabetic", a);
+      T((d ? fmt(cnt, d) : String(Math.round(cnt))) + u, x + 32, y + 176, fitFont((d ? fmt(v, d) : String(Math.round(v))) + u, tw - 50, 104), "#fff", "left", "alphabetic", a);
+    });
+    // bars
+    const ba = easeOut((e - 1.0) / 0.6), maxV = Math.max(...reps.map(r => r.meanV)), n = reps.length, gw = (SAFE.x1 - SAFE.x0) / n;
+    reps.forEach((r, i) => { const h = 170 * (r.meanV / maxV) * easeOut((e - 1.0 - i * 0.05) / 0.5); g.fillStyle = r.loss >= tgt ? C.red : r.loss >= tgt * 0.6 ? C.amber : C.cyan; RR(SAFE.x0 + i * gw + gw * 0.14, 1330 - h, gw * 0.72, h, 10); g.fill(); });
+    T(vLabel + " POR REP", SAFE.x0, 1120, `700 26px ${FB}`, C.muted, "left", "alphabetic", ba);
+    const ha = easeOut((e - 1.8) / 0.4);
+    if (ha > 0) { g.font = `700 44px ${FD}`; const w = g.measureText(head).width + 70; RR(SAFE.x0, 1380, w, 78, 39); g.fillStyle = vd.col; g.globalAlpha = ha; g.fill(); g.globalAlpha = 1; T(head, SAFE.x0 + w / 2, 1420, `700 44px ${FD}`, "#0a0e13", "center", "middle", ha); if (ha < 0.2 && ticked < 9) { ticked = 9; SFX.pop(); } }
+  });
+
+  // ===== 7 · CTA =====
+  SFX.whoosh(); setTimeout(() => { tone(523, 0.9, 0.12, "triangle"); tone(659, 0.9, 0.1, "triangle", 0.05); tone(784, 0.9, 0.1, "triangle", 0.1); }, 250);
+  await hold(2.8, (e, p) => {
+    drawSrc(0.8, true);
+    const a = easeOut(e / 0.5), sc = 0.7 + 0.3 * easeOut(e / 0.5);
+    g.save(); g.translate(RW / 2, 700); g.scale(sc, sc); g.globalAlpha = a;
+    g.beginPath(); g.arc(0, 0, 170, 0, 7); g.fillStyle = C.brand; g.fill();
+    T("FITNESS", 0, -22, `800 62px ${FB}`, "#fff", "center", "middle", a); T("VLC", 0, 48, `800 62px ${FB}`, "#fff", "center", "middle", a);
+    g.restore(); g.globalAlpha = 1;
+    const b = easeOut((e - 0.4) / 0.5);
+    T("ENTRENA CON DATOS,", RW / 2, 1010, fitFont("ENTRENA CON DATOS,", 860, 110), "#fff", "center", "alphabetic", b);
+    T("NO A OJO", RW / 2, 1120, `700 110px ${FD}`, C.amber, "center", "alphabetic", b);
+    const c = easeOut((e - 0.8) / 0.5);
+    T("Entrenamiento personal · Valencia", RW / 2, 1210, `600 40px ${FB}`, "rgba(238,242,246,.9)", "center", "alphabetic", c);
+    g.globalAlpha = c; RR(RW / 2 - 330, 1270, 660, 96, 48); g.fillStyle = "#fff"; g.fill(); g.globalAlpha = 1;
+    T("personaltrainervlc.com", RW / 2, 1319, `700 44px ${FB}`, "#0a0e13", "center", "middle", c);
+  });
+
+  await new Promise(r => { rec.onstop = r; rec.stop(); });
+  src.pause(); URL.revokeObjectURL(src.src);
+  if (!reelBusy) return;
+  reelBusy = false;
+  const blob = new Blob(chunks, {type:(rec.mimeType || mime || "video/webm").split(";")[0]});
+  const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+  sm.reelFile = fileOf(blob, `${slug(sm)}-reel.${ext}`);
+  $("#reelprog").style.width = "100%";
+  const out = $("#reelout"); out.src = URL.createObjectURL(blob); out.hidden = false; $("#reelcv").hidden = true;
+  $("#reelmsg").textContent = `Reel listo (${Math.round(blob.size / 1e6 * 10) / 10} MB). Pulsa «Guardar reel» y elige «Guardar vídeo»; después súbelo a Instagram y añade la música allí.`;
+  $("#reelsave").hidden = false;
+  $("#reelsave").onclick = () => shareFileTo(sm.reelFile, `${sm.name} · reel`, $("#reelmsg"));
+  window.__lastReel = blob;
+}
+function shareFileTo(file, title, msgEl) {
+  const fallback = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); msgEl.textContent = "Guardado en Archivos › Descargas. Ábrelo y usa Compartir › Guardar vídeo para pasarlo a Fotos."; };
+  try { if (navigator.canShare && navigator.canShare({files:[file]})) { navigator.share({files:[file], title}).then(() => { msgEl.textContent = "Listo. Si elegiste «Guardar vídeo», ya está en Fotos."; }).catch(e => { if (!e || e.name !== "AbortError") fallback(); }); return; } } catch {}
+  fallback();
+}
+
 // keep screen awake during sets
 let wake = null;
 document.addEventListener("visibilitychange", () => { if (document.hidden && st.running) endSet(false); });
@@ -1249,7 +1613,7 @@ async function keepAwake() { try { wake = await navigator.wakeLock?.request("scr
 $("#start").addEventListener("click", keepAwake);
 
 // test hooks
-window.__vlc = {st, get set() { return set; }, EX, buildCard, get last() { return st.session[st.session.length - 1]; }};
+window.__vlc = {st, get set() { return set; }, EX, buildCard, makeReel, get last() { return st.session[st.session.length - 1]; }};
 if (qs.get("autostart")) {
   const ex = qs.get("autostart"); if (EX[ex]) { st.ex = ex; }
   setTimeout(async () => {
