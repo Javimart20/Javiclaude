@@ -154,6 +154,12 @@ input[type=range]{accent-color:var(--cyan);height:28px}
         <span class="met">Velocidad · bloqueo de cadera · trayectoria</span>
         <span class="cam">Cámara de lado, a la altura de la cadera</span>
       </button>
+      <button class="ex" data-ex="row" aria-pressed="false">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M30 3L19 14"/><circle cx="9" cy="12" r="3"/><path d="M11 15l10 10M21 25l7 5M14 18l5-4"/></svg>
+        <span class="nm">Remo</span>
+        <span class="met">Rango de codo · velocidad · cadera en tabla</span>
+        <span class="cam">TRX, polea o banda. Cámara de lado</span>
+      </button>
       <button class="ex" data-ex="curl" aria-pressed="false">
         <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="17" cy="6" r="3"/><path d="M17 9v13M17 22l-4 10M17 22l4 10M17 12l-6 5 3-7M17 12l6 5-3-7"/></svg>
         <span class="nm">Curl de bíceps</span>
@@ -211,7 +217,7 @@ input[type=range]{accent-color:var(--cyan);height:28px}
       <h3>Historial en este iPad</h3>
       <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Ejercicio</th><th>Carga</th><th>Reps</th><th>Mejor vel.</th><th>Pérdida</th></tr></thead><tbody id="histbody"></tbody></table></div>
     </div>
-    <p class="note">Versión 9 · 22 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
+    <p class="note">Versión 10 · 22 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
   </div>
 </section>
 
@@ -386,7 +392,21 @@ class RepEngine {
    signal(P, ctx) → value that RISES during the concentric phase.
    units: "m" (needs calibration) or "°".                         */
 const pick = (P, a, b) => (P[a].v >= P[b].v ? P[a] : P[b]);
-const side = P => ((P[L.ls].v + P[L.le].v + P[L.lw].v + P[L.lh].v + P[L.lk].v) >= (P[L.rs].v + P[L.re].v + P[L.rw].v + P[L.rh].v + P[L.rk].v) ? "l" : "r");
+const rawSide = P => ((P[L.ls].v + P[L.le].v + P[L.lw].v + P[L.lh].v + P[L.lk].v) >= (P[L.rs].v + P[L.re].v + P[L.rw].v + P[L.rh].v + P[L.rk].v) ? "l" : "r");
+let SIDE = null;   // locked per set; only switches if the locked side really disappears
+function side(P) {
+  const r = rawSide(P);
+  if (!SIDE) { SIDE = {s:r, bad:0}; return r; }
+  const vis = sd => (P[L[sd + "s"]].v + P[L[sd + "e"]].v + P[L[sd + "w"]].v + P[L[sd + "h"]].v) / 4;
+  if (vis(SIDE.s) < 0.3 && vis(SIDE.s === "l" ? "r" : "l") > 0.6) { if (++SIDE.bad > 15) { SIDE = {s:SIDE.s === "l" ? "r" : "l", bad:0}; } } else SIDE.bad = 0;
+  return SIDE.s;
+}
+// angle of one joint on the visible side when seen from the side; average of both when seen from the front
+function angSide(P, a, b, c) {
+  const sw = dist(P[L.ls], P[L.rs]), T = dist(mid(P[L.ls], P[L.rs]), mid(P[L.lh], P[L.rh])) || 1;
+  if (sw / T > 0.42) return (angle(P[L["l" + a]], P[L["l" + b]], P[L["l" + c]]) + angle(P[L["r" + a]], P[L["r" + b]], P[L["r" + c]])) / 2;
+  const sd = side(P); return angle(P[L[sd + a]], P[L[sd + b]], P[L[sd + c]]);
+}
 const S = (P, sd, part) => P[L[sd + part]];
 function viewOf(P) {
   const sw = dist(P[L.ls], P[L.rs]), torso = dist(mid(P[L.ls], P[L.rs]), mid(P[L.lh], P[L.rh]));
@@ -463,6 +483,23 @@ const EX = {
       return {flags, view:viewOf(topP), depthCm:rep.amp * 100, hipTop};
     }
   },
+  row: {
+    name:"Remo (TRX / polea)", key:"tp", keyLabel:"arriba", unit:"°/s", sig:"°", minAmp:45, needs:[L.ls, L.rs, L.lh, L.rh],
+    signal:P => { const sd = side(P); return 180 - angle(S(P, sd, "s"), S(P, sd, "e"), S(P, sd, "w")); },
+    trail:P => S(P, side(P), "w"),
+    hud(P) { const sd = side(P); return {label:"Codo", value:Math.round(180 - angle(S(P, sd, "s"), S(P, sd, "e"), S(P, sd, "w"))) + "°", arc:[S(P, sd, "s"), S(P, sd, "e"), S(P, sd, "w")]}; },
+    depthLabel:"Rango de codo",
+    evaluate(rep, F, k) {
+      const flags = [], seg = F.filter(f => f.t >= rep.tv - 0.2 && f.t <= rep.tp + 0.1);
+      const top = nearest(F, rep.tp).P, bot = nearest(F, rep.tv).P, sd = side(top);
+      const line = P => angle(S(P, sd, "s"), S(P, sd, "h"), S(P, sd, "a"));       // 180 = body straight
+      const sag = Math.min(...seg.map(f => line(f.P)));
+      if (sag < 158) flags.push("La cadera se cae: cuerpo en tabla");
+      if (rep.sMax < 75) flags.push("No llega arriba: codo más atrás");
+      const incl = tiltFromVertical(S(bot, sd, "a"), S(bot, sd, "s"));             // TRX difficulty
+      return {flags, view:viewOf(top), rom:rep.amp, incline:incl, sag};
+    }
+  },
   curl: {
     name:"Curl de bíceps", key:"tp", keyLabel:"arriba", unit:"°/s", sig:"°", minAmp:55, needs:[L.ls, L.rs, L.le, L.re, L.lw, L.rw],
     arms:true,
@@ -503,10 +540,10 @@ const FREE_SIG = {
   feet:      {label:"Pies ↕",    u:"m", ids:[L.la, L.ra], f:(P, k) => -mid(P[L.la], P[L.ra]).y / k.ppm, pt:P => mid(P[L.la], P[L.ra]), arc:"k"},
   handsX:    {label:"Manos ↔",   u:"m", ids:[L.lw, L.rw], f:(P, k) => mid(P[L.lw], P[L.rw]).x / k.ppm, pt:P => mid(P[L.lw], P[L.rw]), arc:"e"},
   hipX:      {label:"Cadera ↔",  u:"m", ids:[L.lh, L.rh], f:(P, k) => mid(P[L.lh], P[L.rh]).x / k.ppm, pt:P => mid(P[L.lh], P[L.rh]), arc:"k"},
-  knees:     {label:"Rodillas",  u:"°", ids:[L.lh, L.lk, L.la, L.rh, L.rk, L.ra], f:P => avgAng(P, L.lh, L.lk, L.la, L.rh, L.rk, L.ra), pt:P => mid(P[L.lh], P[L.rh]), arc:"k"},
-  hipsA:     {label:"Cadera (ángulo)", u:"°", ids:[L.ls, L.lh, L.lk, L.rs, L.rh, L.rk], f:P => avgAng(P, L.ls, L.lh, L.lk, L.rs, L.rh, L.rk), pt:P => mid(P[L.ls], P[L.rs]), arc:"h"},
-  elbows:    {label:"Codos",     u:"°", ids:[L.ls, L.le, L.lw, L.rs, L.re, L.rw], f:P => avgAng(P, L.ls, L.le, L.lw, L.rs, L.re, L.rw), pt:P => mid(P[L.lw], P[L.rw]), arc:"e"},
-  shouldersA:{label:"Hombros (ángulo)", u:"°", ids:[L.lh, L.ls, L.le, L.rh, L.rs, L.re], f:P => avgAng(P, L.lh, L.ls, L.le, L.rh, L.rs, L.re), pt:P => mid(P[L.lw], P[L.rw]), arc:"s"}
+  knees:     {label:"Rodillas",  u:"°", ids:[L.lh, L.lk, L.la, L.rh, L.rk, L.ra], f:P => angSide(P, "h", "k", "a"), pt:P => mid(P[L.lh], P[L.rh]), arc:"k"},
+  hipsA:     {label:"Cadera (ángulo)", u:"°", ids:[L.ls, L.lh, L.lk, L.rs, L.rh, L.rk], f:P => angSide(P, "s", "h", "k"), pt:P => mid(P[L.ls], P[L.rs]), arc:"h"},
+  elbows:    {label:"Codos",     u:"°", ids:[L.ls, L.le, L.lw, L.rs, L.re, L.rw], f:P => angSide(P, "s", "e", "w"), pt:P => mid(P[L.lw], P[L.rw]), arc:"e"},
+  shouldersA:{label:"Hombros (ángulo)", u:"°", ids:[L.lh, L.ls, L.le, L.rh, L.rs, L.re], f:P => angSide(P, "h", "s", "e"), pt:P => mid(P[L.lw], P[L.rw]), arc:"s"}
 };
 const ARC = {k:["h", "k", "a", "Rodilla"], e:["s", "e", "w", "Codo"], h:["s", "h", "k", "Cadera"], s:["h", "s", "e", "Hombro"]};
 EX.free = {
@@ -699,6 +736,7 @@ async function startSet() {
     pendingArm:null, ring:[], boxHist:[], snaps:[], snapT:0, recorder:null, chunks:[], videoBlob:null, mime:"", ended:false, lastP:null, lastSeen:0
   };
   filters.forEach(f => { f.x = new OneEuro(); f.y = new OneEuro(); });
+  SIDE = null;
   st.running = true; requestAnimationFrame(loop);   // the recorder starts on the first drawn frame, once the stage has its real size
 }
 
@@ -765,7 +803,7 @@ function loopBody() {
   if (!set.recTried && v.readyState >= 2 && cv.width > 300 && set.det > 3) startRecorder();
   set.fpsN = (set.fpsN || 0) + 1; const pn = performance.now(); if (!set.fpsT) set.fpsT = pn; if (pn - set.fpsT > 1000) { set.fps = Math.round(set.fpsN * 1000 / (pn - set.fpsT)); set.fpsN = 0; set.fpsT = pn; }
   if (set.lastErr) txt("Error: " + set.lastErr.slice(0, 80), U(22), view.H - U(40), `600 ${U(13)}px ${FB}`, C.red);
-  else txt(`v9 · ${set.fps || "–"} fps · ${set.recorder ? "grabando" : "sin grabar"}`, U(22), view.H - U(40), `500 ${U(11)}px ${FB}`, "rgba(255,255,255,.45)");
+  else txt(`v10 · ${set.fps || "–"} fps · ${set.recorder ? "grabando" : "sin grabar"}`, U(22), view.H - U(40), `500 ${U(11)}px ${FB}`, "rgba(255,255,255,.45)");
 }
 function copyToRec() {
   if (!recCtx) return;
@@ -874,6 +912,7 @@ function process(P, t) {
   const ma = def.free ? (set.free.engine ? set.free.engine.minAmp : Infinity) : def.minAmp;
   if (recent.length > 4) { const span = Math.max(...recent) - Math.min(...recent); if (span > ma * 0.12) set.lastMoveT = t; }
   if (def.free && !set.free.engine) set.lastMoveT = t;   // don't auto-end before a movement is found
+  if (rep && !acceptRep(rep)) rep = null;
   if (rep) onRep(rep, t);
   if (st.autoEnd && set.reps.length && t - set.lastMoveT > 5 && !set.pendingArm) endSet(false);
 }
@@ -915,12 +954,22 @@ function processFree(P, t, k) {
     for (const key of Object.keys(FREE_SIG)) { const n = norm(key); if (n > bn * 1.6) { bn = n; best = key; } }
     if (best !== fr.lock) { fr.lock = best; set.curve = []; rep = makeEngine(best); set.toast = {text:`Siguiendo: ${FREE_SIG[best].label}`, t, col:C.amber}; }
   }
-  if (t - fr.ampT > 1) { fr.ampT = t; const a = Math.max(floor(fr.lock), 0.45 * range(fr.lock)); if (Math.abs(a - fr.engine.minAmp) / fr.engine.minAmp > 0.15) { fr.engine.minAmp = a; fr.engine.h = a * 0.3; } }
+  if (t - fr.ampT > 1) { fr.ampT = t; const amps = set.reps.map(r => r.amp), medA = amps.length >= 2 ? pct(amps, 0.5) : 0; const a = Math.max(floor(fr.lock), 0.45 * range(fr.lock), 0.6 * medA); if (Math.abs(a - fr.engine.minAmp) / fr.engine.minAmp > 0.15) { fr.engine.minAmp = a; fr.engine.h = a * 0.3; } }
   const s = FREE_SIG[fr.lock].f(P, k);
   set.curve.push({t:t - set.tStartCount, s});
   return fr.engine.push(t, s) || rep;
 }
 
+function acceptRep(rep) {
+  const prev = set.reps[set.reps.length - 1];
+  if (prev && rep.tp - prev.tp < 0.45) return false;                       // nobody does a real rep in < 0.45 s
+  if (set.reps.length >= 2) {
+    const amps = set.reps.map(r => r.amp), cyc = set.reps.map(r => r.cycle).filter(Boolean);
+    if (rep.amp < 0.55 * pct(amps, 0.5)) return false;                       // half-rep / wobble
+    if (cyc.length >= 2 && prev && rep.tp - prev.tp < 0.4 * pct(cyc, 0.5)) return false;
+  }
+  return true;
+}
 function onRep(rep, t) {
   const def = set.def;
   // per-rep window: from the previous rep's end (or the valley minus the rise) to this rep's end
