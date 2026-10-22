@@ -198,6 +198,7 @@ input[type=range]{accent-color:var(--cyan);height:28px}
       <label class="tog"><input type="checkbox" id="voice" checked> Voz cuenta las reps</label>
       <label class="tog"><input type="checkbox" id="rear"> Usar cámara trasera</label>
       <label class="tog"><input type="checkbox" id="autoend" checked> Terminar sola tras 5 s quieto</label>
+      <label class="tog"><input type="checkbox" id="muscles" checked> Sombrear músculos</label>
     </div>
 
     <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">
@@ -211,7 +212,7 @@ input[type=range]{accent-color:var(--cyan);height:28px}
       <h3>Historial en este iPad</h3>
       <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Ejercicio</th><th>Carga</th><th>Reps</th><th>Mejor vel.</th><th>Pérdida</th></tr></thead><tbody id="histbody"></tbody></table></div>
     </div>
-    <p class="note">Versión 5 · 22 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
+    <p class="note">Versión 6 · 22 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
   </div>
 </section>
 
@@ -267,6 +268,7 @@ input[type=range]{accent-color:var(--cyan);height:28px}
       <button class="btn" id="sharevid">Guardar replay</button>
       <button class="btn" id="shareimg">Guardar imagen resumen</button>
       <label class="tog" style="padding:10px 14px"><input type="checkbox" id="reelname"> Nombre del cliente en el reel</label>
+      <label class="tog" style="padding:10px 14px"><input type="checkbox" id="reelmus" checked> Músculos en el reel</label>
     </div>
     <p class="note" id="sharemsg" role="status"></p>
     <p class="disclaimer">Estimaciones con visión artificial y una sola cámara. La comparación es fiable entre series con la cámara en el mismo sitio; los valores absolutos son aproximados.</p>
@@ -546,6 +548,126 @@ function jointROM(frames) {
 }
 function nearest(F, t) { let b = F[0]; for (const f of F) if (Math.abs(f.t - t) < Math.abs(b.t - t)) b = f; return b; }
 
+
+/* =====================================================================
+   MÚSCULOS: zonas anatómicas ancladas al esqueleto (estimadas, 2D).
+   Se dibujan por capas: tinte "overlay" + color suave encima.
+   ===================================================================== */
+const MDEF = {
+  quads:    {name:"CUÁDRICEPS",     fn:"Extensión de rodilla",               col:"#ff8a3d"},
+  glute:    {name:"GLÚTEO MAYOR",   fn:"Extensión de cadera",                col:"#ff3b5c"},
+  adductors:{name:"ADUCTORES",      fn:"Extensión y estabilidad de cadera",  col:"#b45cff"},
+  gluteMed: {name:"GLÚTEO MEDIO",   fn:"Estabiliza pelvis y rodilla",        col:"#3d8bff"},
+  hams:     {name:"ISQUIOTIBIALES", fn:"Extensión de cadera",                col:"#3ddc84"},
+  erectors: {name:"ERECTORES",      fn:"Mantienen la espalda neutra",        col:"#2cd4c4"},
+  calves:   {name:"GEMELOS",        fn:"Extensión de tobillo",               col:"#00c2ff"},
+  delts:    {name:"DELTOIDES",      fn:"Eleva y empuja el brazo",            col:"#ff5cc8"},
+  triceps:  {name:"TRÍCEPS",        fn:"Extensión de codo",                  col:"#c6f432"},
+  biceps:   {name:"BÍCEPS",         fn:"Flexión de codo",                    col:"#ff4d4d"},
+  brachio:  {name:"BRAQUIORRADIAL", fn:"Flexión de codo (antebrazo)",        col:"#ffb020"},
+  traps:    {name:"TRAPECIO",       fn:"Eleva y estabiliza la escápula",     col:"#9b7bff"}
+};
+const MUSCLES = {squat:["quads", "glute", "adductors", "gluteMed"], press:["delts", "triceps", "traps"], deadlift:["glute", "hams", "erectors", "adductors"], curl:["biceps", "brachio"]};
+// free mode: muscles from the joints that move the most
+function musclesFromROM(rom) {
+  const map = {Rodilla:["quads", "glute"], Cadera:["glute", "hams"], Codo:["biceps", "triceps"], Hombro:["delts"]};
+  const out = []; Object.entries(rom).filter(([, v]) => v > 40).sort((a, b) => b[1] - a[1]).forEach(([j]) => map[j].forEach(m => { if (!out.includes(m)) out.push(m); }));
+  return out.slice(0, 4).length ? out.slice(0, 4) : ["quads", "glute"];
+}
+function recentROM(frames) {
+  const r = jointROM(frames), o = {};
+  for (const j of Object.keys(r)) { const v = ["l", "r"].map(sd => r[j][sd] ? r[j][sd][1] - r[j][sd][0] : 0); o[j] = Math.max(...v); }
+  return o;
+}
+// P in target-canvas pixels (uniform scale). mirror = display mirrored.
+function muscleBlobs(P, ids, mirror) {
+  const ok = (...ix) => ix.every(i => P[i] && P[i].v > 0.35);
+  const sub = (a, b) => ({x:a.x - b.x, y:a.y - b.y}), add = (a, b, k = 1) => ({x:a.x + b.x * k, y:a.y + b.y * k}), len = v => Math.hypot(v.x, v.y) || 1;
+  const nrm = v => { const l = len(v); return {x:v.x / l, y:v.y / l}; }, lerp = (a, b, t) => ({x:a.x + (b.x - a.x) * t, y:a.y + (b.y - a.y) * t});
+  if (!ok(L.ls, L.rs, L.lh, L.rh)) return [];
+  const mS = mid(P[L.ls], P[L.rs]), mH = mid(P[L.lh], P[L.rh]), T = dist(mS, mH), sw = dist(P[L.ls], P[L.rs]);
+  const frontal = sw / T > 0.42;
+  const faceCam = mirror ? P[L.ls].x < P[L.rs].x : P[L.ls].x > P[L.rs].x;
+  const fwd = {x:Math.sign((P[L.nose].v > 0.3 ? P[L.nose].x : mS.x) - mS.x) || 1, y:0};   // lateral: direction the body faces
+  const up = nrm(sub(mS, mH));
+  const showFront = !frontal || faceCam, showBack = !frontal || !faceCam;
+  const out = [];
+  const B = (id, c, along, a, b, op = 1) => out.push({id, c, rot:Math.atan2(along.y, along.x), a, b, op});
+  // perpendicular to a segment that points "forward" (lateral) — 0 when seen from the front/back
+  const fwdOff = (A, Bp) => { if (frontal) return {x:0, y:0}; const d = nrm(sub(Bp, A)); let n = {x:-d.y, y:d.x}; if (n.x * fwd.x < 0) n = {x:-n.x, y:-n.y}; return n; };
+  for (const sd of ["l", "r"]) {
+    const h = P[L[sd + "h"]], k = P[L[sd + "k"]], a = P[L[sd + "a"]], sh = P[L[sd + "s"]], e = P[L[sd + "e"]], w = P[L[sd + "w"]];
+    const other = P[L[(sd === "l" ? "r" : "l") + "h"]];
+    if (ok(L[sd + "h"], L[sd + "k"])) {
+      const Lt = dist(h, k), d = sub(k, h), n = fwdOff(h, k), med = nrm(sub(other, h));
+      if (ids.includes("quads") && showFront) B("quads", add(lerp(h, k, 0.5), n, 0.13 * Lt), d, 0.5 * Lt, (frontal ? 0.22 : 0.19) * Lt);
+      if (ids.includes("hams") && showBack) B("hams", add(lerp(h, k, 0.5), n, -0.13 * Lt), d, 0.48 * Lt, (frontal ? 0.2 : 0.16) * Lt);
+      if (ids.includes("adductors") && frontal) B("adductors", add(lerp(h, k, 0.33), med, 0.15 * Lt), d, 0.36 * Lt, 0.12 * Lt, 0.95);
+      if (ids.includes("glute") && showBack) {
+        const c = frontal ? add(add(h, med, 0.12 * sw), up, -0.07 * T) : add(add(h, fwd, -0.17 * T), up, 0.03 * T);
+        B("glute", c, up, 0.3 * T, frontal ? 0.26 * T : 0.24 * T);
+      }
+      if (ids.includes("gluteMed") && showBack) B("gluteMed", frontal ? add(add(h, up, 0.13 * T), med, -0.06 * sw) : add(add(h, up, 0.2 * T), fwd, -0.08 * T), up, 0.15 * T, 0.13 * T, 0.95);
+    }
+    if (ids.includes("calves") && showBack && ok(L[sd + "k"], L[sd + "a"])) { const Ls = dist(k, a), n = fwdOff(k, a); B("calves", add(lerp(k, a, 0.3), n, -0.07 * Ls), sub(a, k), 0.3 * Ls, 0.12 * Ls); }
+    if (ok(L[sd + "s"], L[sd + "e"])) {
+      const Lu = dist(sh, e), d = sub(e, sh);
+      let ant = {x:0, y:0};
+      if (ok(L[sd + "w"])) { const dn = nrm(d); let n = {x:-dn.y, y:dn.x}; const fw = sub(w, e); if (n.x * fw.x + n.y * fw.y < 0) n = {x:-n.x, y:-n.y}; if (angle(sh, e, w) < 160) ant = n; else if (!frontal) ant = fwdOff(sh, e); }
+      if (ids.includes("delts")) B("delts", lerp(sh, e, 0.14), d, 0.2 * Lu, 0.17 * Lu);
+      if (ids.includes("biceps") && (!frontal || faceCam)) B("biceps", add(lerp(sh, e, 0.55), ant, 0.07 * Lu), d, 0.3 * Lu, 0.11 * Lu);
+      if (ids.includes("triceps") && (!frontal || !faceCam || !ids.includes("biceps"))) B("triceps", add(lerp(sh, e, 0.5), ant, -0.07 * Lu), d, 0.32 * Lu, 0.11 * Lu);
+      if (ids.includes("brachio") && ok(L[sd + "w"])) { const Lf = dist(e, w); B("brachio", lerp(e, w, 0.28), sub(w, e), 0.26 * Lf, 0.09 * Lf); }
+    }
+  }
+  if (ids.includes("traps")) { for (const sd of ["l", "r"]) { const sh = P[L[sd + "s"]], nk = add(mS, up, 0.12 * T); B("traps", lerp(nk, sh, 0.45), sub(sh, nk), 0.3 * dist(nk, sh), 0.07 * T, 0.9); } }
+  if (ids.includes("erectors") && showBack) {
+    if (frontal) { const ax = nrm(sub(P[L.ls], P[L.rs])); for (const s2 of [-1, 1]) B("erectors", add(lerp(mH, mS, 0.4), ax, s2 * 0.07 * sw), up, 0.32 * T, 0.05 * T, 0.9); }
+    else B("erectors", add(lerp(mH, mS, 0.42), fwd, -0.1 * T), up, 0.33 * T, 0.06 * T, 0.9);
+  }
+  return out;
+}
+let mLayer = null;
+function drawMuscles(tg, P, ids, mirror, act = 1, labels = null) {
+  const blobs = muscleBlobs(P, ids, mirror); if (!blobs.length) return;
+  const W = tg.canvas.width, H = tg.canvas.height;
+  if (!mLayer || mLayer.width !== W || mLayer.height !== H) { mLayer = document.createElement("canvas"); mLayer.width = W; mLayer.height = H; }
+  const m = mLayer.getContext("2d"); m.clearRect(0, 0, W, H);
+  for (const b of blobs) {
+    const col = MDEF[b.id].col; m.save(); m.translate(b.c.x, b.c.y); m.rotate(b.rot); m.scale(b.a, b.b);
+    const gr = m.createRadialGradient(0, 0, 0, 0, 0, 1);
+    gr.addColorStop(0, hexA(col, 0.95 * b.op)); gr.addColorStop(0.55, hexA(col, 0.75 * b.op)); gr.addColorStop(1, hexA(col, 0));
+    m.fillStyle = gr; m.beginPath(); m.arc(0, 0, 1, 0, 7); m.fill(); m.restore();
+  }
+  const k = 0.45 + 0.55 * clamp(act, 0, 1);
+  tg.save(); tg.globalCompositeOperation = "overlay"; tg.globalAlpha = k; tg.drawImage(mLayer, 0, 0);
+  tg.globalCompositeOperation = "source-over"; tg.globalAlpha = 0.5 * k; tg.drawImage(mLayer, 0, 0);
+  tg.globalCompositeOperation = "screen"; tg.globalAlpha = 0.25 * k; tg.drawImage(mLayer, 0, 0); tg.restore();
+  if (!labels) return;
+  // one label per muscle, on the side of the screen where it sits, stacked without overlap
+  const groups = {}; for (const b of blobs) (groups[b.id] = groups[b.id] || []).push(b.c);
+  const items = Object.entries(groups).map(([id, cs]) => { const c = cs.reduce((p, q) => ({x:p.x + q.x / cs.length, y:p.y + q.y / cs.length}), {x:0, y:0}); return {id, c, side:c.x < labels.cx ? "L" : "R"}; });
+  const bw = labels.w, bh = labels.h;
+  for (const sideK of ["L", "R"]) {
+    const list = items.filter(i => i.side === sideK).sort((a, b) => a.c.y - b.c.y); let lastY = -1e9;
+    for (const it of list) {
+      let y = clamp(it.c.y - bh / 2, labels.top, labels.bot - bh); if (y < lastY + bh + 16) y = lastY + bh + 16; lastY = y;
+      const x = sideK === "L" ? labels.x0 : labels.x1 - bw, col = MDEF[it.id].col, a = labels.alpha;
+      tg.globalAlpha = a;
+      tg.strokeStyle = col; tg.lineWidth = labels.lw; tg.beginPath(); const ex = sideK === "L" ? x + bw : x; tg.moveTo(ex, y + bh / 2); tg.lineTo(it.c.x, it.c.y); tg.stroke();
+      tg.fillStyle = "#fff"; tg.beginPath(); tg.arc(it.c.x, it.c.y, labels.lw * 2.6, 0, 7); tg.fill(); tg.strokeStyle = col; tg.lineWidth = labels.lw; tg.stroke();
+      tg.beginPath(); tg.roundRect ? tg.roundRect(x, y, bw, bh, bh * 0.16) : tg.rect(x, y, bw, bh); tg.fillStyle = "rgba(8,11,16,.84)"; tg.fill(); tg.strokeStyle = col; tg.lineWidth = labels.lw; tg.stroke();
+      tg.fillStyle = "#fff"; tg.textAlign = "left"; tg.textBaseline = "alphabetic";
+      let fs = labels.f1; tg.font = `700 ${fs}px ${FD}`; while (tg.measureText(MDEF[it.id].name).width > bw - 28 && fs > 14) { fs -= 2; tg.font = `700 ${fs}px ${FD}`; }
+      tg.fillText(MDEF[it.id].name, x + 14, y + bh * 0.47);
+      fs = labels.f2; tg.font = `500 ${fs}px ${FB}`; while (tg.measureText(MDEF[it.id].fn).width > bw - 28 && fs > 11) { fs -= 1; tg.font = `500 ${fs}px ${FB}`; }
+      tg.fillStyle = "rgba(238,242,246,.85)"; tg.fillText(MDEF[it.id].fn, x + 14, y + bh * 0.8);
+      tg.globalAlpha = 1;
+    }
+  }
+}
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+
 /* ---------------- app state ---------------- */
 const st = {
   ex:"squat", client:"", height:170, load:null, vlTarget:20, voice:true, rear:false, autoEnd:true,
@@ -565,7 +687,7 @@ document.querySelectorAll("#follow .chip").forEach(c => c.addEventListener("clic
   c.setAttribute("aria-pressed", "true"); st.follow = c.dataset.f; savePrefs();
 }));
 $("#vl").addEventListener("input", e => { $("#vlv").textContent = e.target.value; });
-function savePrefs() { store.set("vlc.prefs", {follow:st.follow, freename:$("#freename").value, ex:st.ex, client:$("#client").value, height:$("#height").value, vl:$("#vl").value, voice:$("#voice").checked, rear:$("#rear").checked, autoend:$("#autoend").checked}); }
+function savePrefs() { store.set("vlc.prefs", {follow:st.follow, freename:$("#freename").value, ex:st.ex, client:$("#client").value, height:$("#height").value, vl:$("#vl").value, voice:$("#voice").checked, rear:$("#rear").checked, autoend:$("#autoend").checked, muscles:$("#muscles").checked}); }
 (function loadPrefs() {
   const p = store.get("vlc.prefs", null); if (!p) return;
   if (p.ex) { st.ex = p.ex; document.querySelectorAll(".ex").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.ex === p.ex))); }
@@ -574,7 +696,7 @@ function savePrefs() { store.set("vlc.prefs", {follow:st.follow, freename:$("#fr
   if (p.freename) $("#freename").value = p.freename;
   if (p.client) $("#client").value = p.client; if (p.height) $("#height").value = p.height;
   if (p.vl) { $("#vl").value = p.vl; $("#vlv").textContent = p.vl; }
-  ["voice", "rear", "autoend"].forEach(k => { if (k in p) $("#" + k).checked = p[k]; });
+  ["voice", "rear", "autoend", "muscles"].forEach(k => { if (k in p) $("#" + k).checked = p[k]; });
 })();
 renderHistory();
 
@@ -669,7 +791,7 @@ async function startSet() {
   st.client = $("#client").value.trim(); st.height = clamp(+$("#height").value || 170, 130, 215);
   st.load = +$("#load").value || null; st.vlTarget = +$("#vl").value; st.voice = $("#voice").checked;
   const rearNow = $("#rear").checked; if (rearNow !== st.rear) { stopCamera(); st.rear = rearNow; }
-  st.autoEnd = $("#autoend").checked; st.freeName = $("#freename").value.trim(); savePrefs();
+  st.autoEnd = $("#autoend").checked; st.muscles = $("#muscles").checked; st.freeName = $("#freename").value.trim(); savePrefs();
   unlockAudio();
   try { if (st.voice && "speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch {}
   show("live"); $("#loading").hidden = false; $("#loading").textContent = "Cargando el modelo de detección…";
@@ -691,7 +813,7 @@ async function startSet() {
     phase:"calibrate", calib:[], ppm:null, reps:[], frames:[], trail:[], curve:[], lastMoveT:0, toast:null, stopAlerted:false,
     engine:(def.arms || def.free) ? null : new RepEngine(def.minAmp), arms:def.arms ? {l:new RepEngine(def.minAmp), r:new RepEngine(def.minAmp)} : null,
     free:def.free ? {ring:{}, lock:st.follow !== "auto" ? st.follow : null, forced:st.follow !== "auto", engine:null, selT:0, ampT:0} : null,
-    pendingArm:null, ring:[], boxHist:[], snaps:[], snapT:0, recorder:null, chunks:[], videoBlob:null, mime:"", ended:false, lastP:null, lastSeen:0
+    pendingArm:null, ring:[], boxHist:[], poseHist:[], snaps:[], snapT:0, recorder:null, chunks:[], videoBlob:null, mime:"", ended:false, lastP:null, lastSeen:0
   };
   filters.forEach(f => { f.x = new OneEuro(); f.y = new OneEuro(); });
   st.running = true; requestAnimationFrame(loop);   // the recorder starts on the first drawn frame, once the stage has its real size
@@ -834,6 +956,7 @@ function process(P, t) {
 
   // store frame for technique evaluation (last 12 s)
   set.frames.push({t, P}); while (set.frames.length && t - set.frames[0].t > 12) set.frames.shift();
+  set.poseHist.push({t, N:P.map(p => [X(p) / view.W, Y(p) / view.H, p.v])});
   const tr = def.trail ? def.trail(P) : mid(P[L.lw], P[L.rw]);
   set.trail.push({t, x:tr.x, y:tr.y}); while (set.trail.length && t - set.trail[0].t > 2.2) set.trail.shift();
 
@@ -985,6 +1108,14 @@ function draw(now) {
   if (P) drawBody(P, now);
   if (set && set.phase === "count" && now - (set.ringT || 0) > 0.08) { set.ringT = now; pushRing(now); }  // key frames without HUD
   if (set && set.recorder) copyToRec();   // the replay is recorded clean (video + skeleton), the reel adds its own graphics
+  if (set && st.muscles && P && set.phase === "count") {
+    const ids = set.def.free ? (set.mIds || ["quads", "glute"]) : MUSCLES[set.ex];
+    if (set.def.free && now - (set.mT || 0) > 1) { set.mT = now; set.mIds = musclesFromROM(recentROM(set.frames.filter(f => now - f.t < 4))); }
+    const eng = set.engine || (set.free && set.free.engine) || (set.arms && set.arms.l);
+    set.act = (set.act || 0) + (((eng && eng.state === "peak") ? 1 : 0.35) - (set.act || 0)) * 0.15;
+    const PP = P.map(p => ({x:X(p), y:Y(p), v:p.v}));
+    drawMuscles(ctx, PP, ids, view.mirror, set.act);
+  }
   drawHUD(now);
 }
 
@@ -1131,7 +1262,8 @@ function buildSummary(s) {
   return {
     id:Date.now(), date:new Date(), ex:s.ex, name:def.free ? (st.freeName || def.name) : def.name, unit:def.unit, sig:def.free ? FREE_SIG[s.free.lock].u : def.sig, client:st.client, load:st.load, n:s.n, vlTarget:st.vlTarget,
     reps, best, bestI, worst, worstI, lastLoss, maxLoss, finalLoss, ampMean, ampCV, deepI, tut, flagCount,
-    curve:s.curve, video:s.videoBlob, mime:s.mime, recT0:s.recT0, rate:s.rate || 1, boxHist:s.boxHist, stageAR:cv.width / cv.height, view:reps[0].ev.view, t0:s.tStartCount, approxCal:!!s.approxCal,
+    curve:s.curve, video:s.videoBlob, mime:s.mime, recT0:s.recT0, rate:s.rate || 1, boxHist:s.boxHist, poseHist:s.poseHist, mirror:view.mirror, stageAR:cv.width / cv.height,
+    mIds:def.free ? musclesFromROM((() => { const o = {}; for (const j of JOINTS.map(x => x[0])) { const v = reps.map(r => r.rom && r.rom[j] ? Math.max(...["l", "r"].map(sd => r.rom[j][sd] ? r.rom[j][sd][1] - r.rom[j][sd][0] : 0)) : 0); o[j] = v.reduce((a, b) => a + b, 0) / Math.max(1, v.length); } return o; })()) : MUSCLES[s.ex], view:reps[0].ev.view, t0:s.tStartCount, approxCal:!!s.approxCal,
     free:!!def.free, follow:def.free ? FREE_SIG[s.free.lock].label : null, cycleMed:(() => { const c = reps.map(r => r.cycle).filter(Boolean); return c.length ? pct(c, 0.5) : null; })(),
     cycleCV:(() => { const c = reps.map(r => r.cycle).filter(Boolean); if (c.length < 2) return null; const m = c.reduce((a, b) => a + b, 0) / c.length; return Math.sqrt(c.reduce((a, b) => a + (b - m) ** 2, 0) / c.length) / m * 100; })()
   };
@@ -1369,6 +1501,12 @@ async function makeReel(sm) {
     let b = H[0]; for (const h of H) { if (Math.abs(h.t - t) < Math.abs(b.t - t)) b = h; if (h.t > t + 0.3) break; } return b.box;
   };
   const cam = {cx:VW / 2, cy:VH / 2, h:VH};
+  const PH = sm.poseHist || [];
+  const poseAt = v => { if (!PH.length) return null; const t = sm.recT0 + v * rate; let lo = 0, hi = PH.length - 1; while (hi - lo > 1) { const md = (lo + hi) >> 1; if (PH[md].t < t) lo = md; else hi = md; } const f = Math.abs(PH[lo].t - t) < Math.abs(PH[hi].t - t) ? PH[lo] : PH[hi]; return Math.abs(f.t - t) < 0.25 ? f.N : null; };
+  const poseR = v => { const N = poseAt(v); if (!N) return null; return N.map(([x, y, vv]) => { const [rx, ry] = toR(x * VW, y * VH); return {x:rx, y:ry, v:vv}; }); };
+  const useM = sm.mIds && sm.mIds.length && $("#reelmus") && $("#reelmus").checked;
+  let actR = 0.4;
+  const actAt = v => { const t = sm.recT0 + v * rate; return sm.reps.some(r => t >= r.tv && t <= r.tp + 0.05) ? 1 : 0.35; };
   function aimCam(v, z, snap) {
     const [x0, y0, x1, y1] = boxAt(v), bh = (y1 - y0) * VH, bw = (x1 - x0) * VW;
     let h = Math.max(bh * 1.38, bw * 1.25 * 16 / 9) / z;
@@ -1459,6 +1597,7 @@ async function makeReel(sm) {
   aimCam(a0, 1, true);
   await play(a0, a1, prSet, v => {
     aimCam(v, 1, false); drawSrc(0);
+    if (useM) { const PR = poseR(v); actR += (actAt(v) - actR) * 0.2; if (PR) drawMuscles(g, PR, sm.mIds, sm.mirror, actR * 0.85); }
     while (shown < reps.length && v >= repT[shown]) { pops.push({n:shown, t:performance.now()}); shown++; popT = performance.now(); SFX.pop(); SFX.tick(); }
     brand(1, serieTxt);
     T(exName, SAFE.x0, SAFE.top + 120, fitFont(exName, 620, 64), "#fff");
@@ -1496,6 +1635,22 @@ async function makeReel(sm) {
     T(`REP ${best.n}`, SAFE.x0, SAFE.top + 130, `700 90px ${FD}`, "#fff");
     if (v >= vt(best.tv)) { const a = easeOut((v - vt(best.tv)) * rate / 0.4); T(vLabel, SAFE.x0, 1390, `700 28px ${FB}`, C.muted, "left", "alphabetic", a); T(`${vNum(best.meanV)} ${vUnit}`, SAFE.x0, 1500, `700 120px ${FD}`, C.cyan, "left", "alphabetic", a); }
   });
+
+  // ===== 4b · MÚSCULOS QUE TRABAJAN (best rep again, muscles lit + labels) =====
+  if (useM && PH.length) {
+    SFX.whoosh();
+    const mA = Math.max(0, vt(best.tv) - Math.min(1.2, conc) - 0.1), mB = Math.min(dur - 0.05, vt(best.tp) + 0.35);
+    aimCam(mA, 1, true); let t0m = performance.now();
+    await play(mA, mB, 0.55 / rate, v => {
+      aimCam(v, 1, false); drawSrc(0.15);
+      const PR = poseR(v); actR += (actAt(v) - actR) * 0.2;
+      const la = easeOut((performance.now() - t0m) / 600);
+      if (PR) drawMuscles(g, PR, sm.mIds, sm.mirror, actR, {cx:RW / 2, x0:SAFE.x0, x1:SAFE.x1, w:280, h:100, top:SAFE.top + 260, bot:1540, f1:34, f2:21, lw:4, alpha:la});
+      brand(1, "MÚSCULOS QUE TRABAJAN");
+      T("MÚSCULOS QUE TRABAJAN", SAFE.x0, SAFE.top + 130, fitFont("MÚSCULOS QUE TRABAJAN", SAFE.x1 - SAFE.x0, 76), "#fff", "left", "alphabetic", la);
+      T("Se iluminan en la fase de esfuerzo", SAFE.x0, SAFE.top + 180, `500 30px ${FB}`, C.muted, "left", "alphabetic", la);
+    });
+  }
 
   // ===== 5 · FREEZE on the key position with data =====
   const keyFreeze = async (r, sec, kind) => {
