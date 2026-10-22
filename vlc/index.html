@@ -211,7 +211,7 @@ input[type=range]{accent-color:var(--cyan);height:28px}
       <h3>Historial en este iPad</h3>
       <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Ejercicio</th><th>Carga</th><th>Reps</th><th>Mejor vel.</th><th>Pérdida</th></tr></thead><tbody id="histbody"></tbody></table></div>
     </div>
-    <p class="note">Versión 7 · 22 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
+    <p class="note">Versión 8 · 22 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
   </div>
 </section>
 
@@ -599,7 +599,6 @@ function unlockAudio() {
     const b = actx.createBuffer(1, 1, 22050), src = actx.createBufferSource(); src.buffer = b; src.connect(actx.destination); src.start(0);
   } catch {}
 }
-document.addEventListener("touchend", () => { if (!st.running) unlockAudio(); }, {passive:true});
 function tone(freq, dur, vol = 0.25, type = "sine", when = 0, slideTo = null) {
   if (!actx || !bus) return; if (actx.state !== "running") actx.resume();
   const t = actx.currentTime + when, o = actx.createOscillator(), g = actx.createGain();
@@ -627,7 +626,14 @@ const SFX = {
   pop:() => tone(660, 0.12, 0.3, "triangle", 0, 1320),
   riser:() => { noise(1.4, 0.25, 200, 6000, 0, 1.2); tone(220, 1.4, 0.08, "sawtooth", 0, 880); }
 };
-function beep(freq = 880, dur = 0.09, vol = 0.22) { tone(freq, dur, vol); }
+function beep(freq = 880, dur = 0.09, vol = 0.22) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = freq; o.type = "sine";
+    g.gain.setValueAtTime(vol, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + dur + 0.02);
+  } catch {}
+}
 function say(text) {
   if (!st.voice || !("speechSynthesis" in window)) return;
   try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = "es-ES"; u.rate = 1.15; speechSynthesis.speak(u); } catch {}
@@ -669,8 +675,8 @@ async function startSet() {
   st.load = +$("#load").value || null; st.vlTarget = +$("#vl").value; st.voice = $("#voice").checked;
   const rearNow = $("#rear").checked; if (rearNow !== st.rear) { stopCamera(); st.rear = rearNow; }
   st.autoEnd = $("#autoend").checked; st.freeName = $("#freename").value.trim(); savePrefs();
-  unlockAudio();
   try { if (st.voice && "speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch {}
+  beep(0, 0.01, 0.0001);
   show("live"); $("#loading").hidden = false; $("#loading").textContent = "Cargando el modelo de detección…";
   try {
     await ensureModel();
@@ -757,7 +763,9 @@ function loopBody() {
   }
   draw(now);
   if (!set.recTried && v.readyState >= 2 && cv.width > 300 && set.det > 3) startRecorder();
+  set.fpsN = (set.fpsN || 0) + 1; const pn = performance.now(); if (!set.fpsT) set.fpsT = pn; if (pn - set.fpsT > 1000) { set.fps = Math.round(set.fpsN * 1000 / (pn - set.fpsT)); set.fpsN = 0; set.fpsT = pn; }
   if (set.lastErr) txt("Error: " + set.lastErr.slice(0, 80), U(22), view.H - U(40), `600 ${U(13)}px ${FB}`, C.red);
+  else txt(`v8 · ${set.fps || "–"} fps · ${set.recorder ? "grabando" : "sin grabar"}`, U(22), view.H - U(40), `500 ${U(11)}px ${FB}`, "rgba(255,255,255,.45)");
 }
 function copyToRec() {
   if (!recCtx) return;
@@ -815,7 +823,7 @@ function process(P, t) {
       const still = arr.length > 15 && Math.max(...arr) - Math.min(...arr) < mean * 0.03 && (t - set.calib[0].t) > 0.9;
       if (still) {
         set.ppm = mean / (0.87 * st.height / 100);
-        set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; SFX.ready(); say("Vamos");
+        set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; beep(1320, 0.12); say("Vamos");
       }
     } else set.calib = [];
     // fallback: feet out of frame (e.g. curl close to the camera) → scale from torso ≈ 0.29·height
@@ -823,7 +831,7 @@ function process(P, t) {
     if (t - set.firstSeen > 3.5 && visibleAll(P, [L.ls, L.rs, L.lh, L.rh], 0.5) && visibleAll(P, def.needs, 0.4)) {
       const torso = dist(mid(P[L.ls], P[L.rs]), mid(P[L.lh], P[L.rh]));
       set.ppm = torso / (0.29 * st.height / 100); set.approxCal = true;
-      set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; SFX.ready(); say("Vamos");
+      set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; beep(1320, 0.12); say("Vamos");
     }
     return;
   }
@@ -938,10 +946,10 @@ function onRep(rep, t) {
   if (kf) { rep.keyPN = kf.P.map(p => ({x:X(p) / view.W, y:Y(p) / view.H, v:p.v})); const h = def.hud(kf.P, {ppm:set.ppm}); rep.keyAngle = h ? {label:h.label, value:h.value} : null; }
   if (rep.flags.length) set.toast = {text:`Rep ${rep.n} · ${rep.flags[0]}`, t, col:C.amber};
   if (rep.loss >= st.vlTarget && set.reps.length > 1) {
-    SFX.alert();
+    beep(440, 0.25, 0.3); setTimeout(() => beep(440, 0.25, 0.3), 280);
     if (!set.stopAlerted) { say(`${rep.n}. Para, pérdida del ${Math.round(rep.loss)} por ciento`); set.stopAlerted = true; }
     set.toast = {text:`Pérdida ${Math.round(rep.loss)} % · objetivo ${st.vlTarget} % → corta la serie`, t, col:C.red};
-  } else { SFX.rep(); say(String(rep.n)); }
+  } else { beep(1100, 0.08); say(String(rep.n)); }
 }
 
 function snapStage() {
