@@ -1,0 +1,1060 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Fitness VLC Análisis en directo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one full-screen app with three views (preparar · en directo · resumen). Gym-screen dark look. */
+:root{
+  --bg:#0a0e13; --panel:rgba(14,19,26,.86); --panel-solid:#121820; --line:rgba(255,255,255,.12);
+  --fg:#eef2f6; --muted:#93a1b0; --cyan:#3dd6f5; --amber:#ffb020; --red:#ff4d4d; --green:#58e68c; --brand:#e53935;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);-webkit-font-smoothing:antialiased}
+body{overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+[hidden]{display:none!important}
+.view{position:fixed;inset:0;overflow:auto}
+
+/* ---------- SETUP ---------- */
+#setup{padding:max(24px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.brand{display:inline-flex;align-items:center;gap:10px}
+.pill{background:var(--brand);color:#fff;font:700 15px/1 var(--body);letter-spacing:.06em;padding:9px 14px;border-radius:999px}
+.eyebrow{color:var(--muted);font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:13px}
+h1{font:700 clamp(40px,7vw,68px)/.95 var(--display);margin:6px 0 0;letter-spacing:.005em;text-wrap:balance}
+h1 em{font-style:normal;color:var(--cyan)}
+.lede{color:var(--muted);font-size:18px;max-width:60ch;margin:6px 0 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.ex{position:relative;text-align:left;background:var(--panel-solid);border:1.5px solid var(--line);border-radius:18px;padding:18px 18px 16px;cursor:pointer;min-height:150px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s,transform .15s}
+.ex:hover{border-color:rgba(61,214,245,.5)}
+.ex[aria-pressed="true"]{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(61,214,245,.18) inset}
+.ex .nm{font:700 30px/1 var(--display)}
+.ex .cam{font-size:14px;color:var(--muted)}
+.ex .met{font-size:14px;color:var(--fg);opacity:.85}
+.ex svg{position:absolute;right:14px;top:14px;opacity:.55}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.field{background:var(--panel-solid);border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.field input,.field select{background:transparent;border:0;outline:0;font-size:22px;font-weight:600;width:100%}
+.field input:focus-visible{outline:2px solid var(--cyan);outline-offset:4px;border-radius:4px}
+.field .hint{font-size:13px;color:var(--muted)}
+input[type=range]{accent-color:var(--cyan);height:28px}
+.toggles{display:flex;flex-wrap:wrap;gap:10px}
+.tog{display:inline-flex;align-items:center;gap:10px;background:var(--panel-solid);border:1.5px solid var(--line);border-radius:999px;padding:10px 16px;cursor:pointer;font-weight:600}
+.tog input{width:20px;height:20px;accent-color:var(--cyan)}
+.cta{appearance:none;border:0;border-radius:18px;background:var(--cyan);color:#05212a;font:700 26px/1 var(--display);letter-spacing:.04em;padding:20px 26px;cursor:pointer;text-transform:uppercase}
+.cta:disabled{opacity:.4;cursor:not-allowed}
+.cta:focus-visible,.btn:focus-visible,.ex:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.note{font-size:13px;color:var(--muted);line-height:1.5}
+.err{color:var(--red);font-weight:600}
+.history{display:flex;flex-direction:column;gap:6px}
+.history table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:15px}
+.history th,.history td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+.history th{color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.tablewrap{overflow-x:auto}
+
+/* ---------- LIVE ---------- */
+#live{overflow:hidden;background:#000}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block}
+#video{position:absolute;opacity:0;pointer-events:none;width:2px;height:2px}
+.livebar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:10px;justify-content:center;padding:0 max(16px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));pointer-events:none}
+.btn{pointer-events:auto;appearance:none;border:1.5px solid var(--line);background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:999px;padding:14px 22px;font:700 18px/1 var(--body);letter-spacing:.04em;cursor:pointer}
+.btn.primary{background:var(--cyan);border-color:var(--cyan);color:#05212a}
+.btn.ghost{background:transparent}
+#loading{position:absolute;inset:0;display:grid;place-items:center;background:rgba(5,8,12,.75);font:600 20px var(--body);text-align:center;padding:24px}
+
+/* ---------- SUMMARY ---------- */
+#summary{padding:max(20px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left))}
+.sumhead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.sumhead h2{font:700 clamp(34px,5.5vw,56px)/.95 var(--display);margin:6px 0 0}
+.sumhead .meta{color:var(--muted);font-size:16px}
+.sgrid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:760px){.sgrid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel-solid);border:1px solid var(--line);border-radius:18px;padding:16px;min-width:0}
+.card h3{margin:0 0 10px;font:600 13px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+#replay{width:100%;max-height:62vh;border-radius:12px;background:#000;display:block}
+.keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.key{position:relative;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:3/4}
+.key img{width:100%;height:100%;object-fit:cover;display:block}
+.key span{position:absolute;left:8px;bottom:8px;right:8px;font:700 14px/1.15 var(--body);background:rgba(0,0,0,.72);padding:6px 8px;border-radius:8px}
+.key span b{display:block;font:700 20px/1 var(--display)}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tile{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.tile .l{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tile .v{font:700 40px/1.05 var(--display);font-variant-numeric:tabular-nums;margin-top:4px}
+.tile .s{font-size:13px;color:var(--muted)}
+.verdict{border-radius:16px;padding:14px 16px;border:1.5px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+.verdict .dot{flex:0 0 auto;width:14px;height:14px;border-radius:50%;margin-top:6px}
+.verdict p{margin:0;line-height:1.45;font-size:17px}
+.verdict b{font-weight:700}
+.flags{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.flags li{display:flex;justify-content:space-between;gap:12px;background:var(--bg);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;padding:10px 12px;font-size:16px}
+.flags li.ok{border-left-color:var(--green)}
+.flags li small{color:var(--muted);white-space:nowrap}
+.chart{width:100%;height:auto;display:block}
+.actions{display:flex;flex-wrap:wrap;gap:10px}
+.actions .btn{border-radius:14px}
+.sessions{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.sess{flex:0 0 auto;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:150px;font-variant-numeric:tabular-nums}
+.sess b{font:700 22px/1 var(--display)}
+.sess.cur{border-color:var(--cyan)}
+.disclaimer{font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ================= SETUP ================= -->
+<section id="setup" class="view" aria-labelledby="t-setup">
+  <div class="wrap">
+    <div class="brand"><span class="pill">FITNESS VLC</span><span class="eyebrow">Análisis biomecánico en directo</span></div>
+    <div>
+      <h1 id="t-setup">Elige ejercicio y <em>colócate delante</em></h1>
+      <p class="lede">Cuenta repeticiones, mide la velocidad de cada una y avisa cuando la serie se acerca al fallo. Al terminar tienes el replay y el resumen para enviárselo al cliente.</p>
+    </div>
+
+    <div class="grid" role="group" aria-label="Ejercicio">
+      <button class="ex" data-ex="squat" aria-pressed="true">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="17" cy="5" r="3" fill="none"/><path d="M17 8v9l-7 4 6 6M17 17l7 4-6 6"/><path d="M8 11h18"/></svg>
+        <span class="nm">Sentadilla</span>
+        <span class="met">Profundidad · velocidad de subida · rodillas</span>
+        <span class="cam">Cámara de frente (rodillas) o de lado (profundidad y tronco)</span>
+      </button>
+      <button class="ex" data-ex="press" aria-pressed="false">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="17" cy="9" r="3"/><path d="M17 12v12M17 24l-5 8M17 24l5 8M10 4v10l7 0 7 0V4M6 4h8M20 4h8"/></svg>
+        <span class="nm">Press militar</span>
+        <span class="met">Velocidad · bloqueo arriba · simetría</span>
+        <span class="cam">Cámara de frente; de lado si quieres ver la zona lumbar</span>
+      </button>
+      <button class="ex" data-ex="deadlift" aria-pressed="false">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="7" r="3"/><path d="M12 10l10 6v0M22 16l-2 8-2 8M22 16l3 16M15 13l1 14M6 27h22"/></svg>
+        <span class="nm">Peso muerto</span>
+        <span class="met">Velocidad · bloqueo de cadera · trayectoria</span>
+        <span class="cam">Cámara de lado, a la altura de la cadera</span>
+      </button>
+      <button class="ex" data-ex="curl" aria-pressed="false">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="17" cy="6" r="3"/><path d="M17 9v13M17 22l-4 10M17 22l4 10M17 12l-6 5 3-7M17 12l6 5-3-7"/></svg>
+        <span class="nm">Curl de bíceps</span>
+        <span class="met">Rango · velocidad · balanceo · codos</span>
+        <span class="cam">Cámara de frente o de lado</span>
+      </button>
+    </div>
+
+    <div class="row">
+      <div class="field"><label for="client">Cliente</label><input id="client" placeholder="Nombre" autocomplete="off" maxlength="24"></div>
+      <div class="field"><label for="height">Altura del cliente (cm)</label><input id="height" type="number" inputmode="numeric" min="130" max="215" value="170"><span class="hint">Para pasar píxeles a metros</span></div>
+      <div class="field"><label for="load">Carga (kg)</label><input id="load" type="number" inputmode="decimal" min="0" max="400" step="0.5" placeholder="Opcional"></div>
+      <div class="field"><label for="vl">Cortar serie al perder <span id="vlv">20</span>% de velocidad</label><input id="vl" type="range" min="10" max="40" step="5" value="20"><span class="hint">10–20 % fuerza/potencia · 30–40 % hipertrofia</span></div>
+    </div>
+
+    <div class="toggles">
+      <label class="tog"><input type="checkbox" id="voice" checked> Voz cuenta las reps</label>
+      <label class="tog"><input type="checkbox" id="rear"> Usar cámara trasera</label>
+      <label class="tog"><input type="checkbox" id="autoend" checked> Terminar sola tras 5 s quieto</label>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">
+      <button class="cta" id="start">Empezar serie</button>
+      <button class="btn" id="filebtn" style="border-radius:16px;padding:16px 20px">Analizar vídeo grabado</button>
+      <input type="file" id="file" accept="video/*" hidden>
+      <span class="note" id="setupmsg">El cuerpo entero tiene que verse en la pantalla. Empieza de pie y quieto 1 segundo para calibrar.</span>
+    </div>
+
+    <div class="history card" id="histcard" hidden>
+      <h3>Historial en este iPad</h3>
+      <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Ejercicio</th><th>Carga</th><th>Reps</th><th>Mejor vel.</th><th>Pérdida</th></tr></thead><tbody id="histbody"></tbody></table></div>
+    </div>
+    <p class="note">Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
+  </div>
+</section>
+
+<!-- ================= LIVE ================= -->
+<section id="live" class="view" hidden aria-label="Serie en directo">
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="stage"></canvas>
+  <div class="livebar">
+    <button class="btn ghost" id="cancel">Cancelar</button>
+    <button class="btn primary" id="finish">Terminar serie</button>
+  </div>
+  <div id="loading">Cargando el modelo de detección…</div>
+</section>
+
+<!-- ================= SUMMARY ================= -->
+<section id="summary" class="view" hidden aria-labelledby="t-sum">
+  <div class="wrap" style="max-width:1180px">
+    <div class="sumhead">
+      <div>
+        <div class="brand"><span class="pill">FITNESS VLC</span><span class="eyebrow" id="s-eyebrow">Resumen de la serie</span></div>
+        <h2 id="t-sum">Sentadilla</h2>
+        <div class="meta" id="s-meta"></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="again">Otra serie</button>
+        <button class="btn" id="change">Cambiar ejercicio</button>
+      </div>
+    </div>
+
+    <div class="verdict" id="verdict"><span class="dot"></span><p></p></div>
+
+    <div class="sgrid">
+      <div class="card">
+        <h3>Replay</h3>
+        <video id="replay" controls playsinline></video>
+        <div class="keys" id="keys"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div class="card"><h3>Datos clave</h3><div class="tiles" id="tiles"></div></div>
+        <div class="card"><h3 id="velh">Velocidad de cada repetición</h3><div id="velchart"></div></div>
+        <div class="card"><h3>Técnica</h3><ul class="flags" id="flags"></ul></div>
+      </div>
+    </div>
+
+    <div class="card"><h3>Recorrido durante la serie</h3><div id="curve"></div></div>
+
+    <div class="card"><h3>Series de hoy</h3><div class="sessions" id="sessions"></div></div>
+
+    <div class="actions">
+      <button class="btn primary" id="shareimg">Compartir resumen (imagen)</button>
+      <button class="btn" id="sharevid">Compartir replay (vídeo)</button>
+    </div>
+    <p class="disclaimer">Estimaciones con visión artificial y una sola cámara. La comparación es fiable entre series con la cámara en el mismo sitio; los valores absolutos son aproximados.</p>
+  </div>
+</section>
+
+<script type="module">
+/* =====================================================================
+   Fitness VLC · análisis en directo
+   Pose: MediaPipe Pose Landmarker (tasks-vision) en el navegador.
+   ===================================================================== */
+const qs = new URLSearchParams(location.search);
+const MP_VER = "0.10.21";
+const MP_URL = qs.get("mp") || `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/vision_bundle.mjs`;
+const WASM_URL = qs.get("wasm") || `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`;
+const MODEL_URL = qs.get("model") || "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
+
+const $ = s => document.querySelector(s);
+const C = {cyan:"#3dd6f5", amber:"#ffb020", red:"#ff4d4d", green:"#58e68c", brand:"#e53935", fg:"#eef2f6", muted:"#93a1b0", panel:"rgba(10,14,19,.78)", line:"rgba(255,255,255,.14)"};
+const FD = "'Barlow Condensed','Arial Narrow',sans-serif", FB = "'Barlow',system-ui,sans-serif";
+const fmt = (x, d = 2) => (x == null || !isFinite(x)) ? "—" : x.toFixed(d).replace(".", ",");
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+/* ---------------- geometry ---------------- */
+const L = {nose:0, ls:11, rs:12, le:13, re:14, lw:15, rw:16, lh:23, rh:24, lk:25, rk:26, la:27, ra:28, lheel:29, rheel:30, lf:31, rf:32};
+const mid = (a, b) => ({x:(a.x + b.x) / 2, y:(a.y + b.y) / 2, v:Math.min(a.v, b.v)});
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function angle(a, b, c) { // interior angle at b (deg)
+  const v1x = a.x - b.x, v1y = a.y - b.y, v2x = c.x - b.x, v2y = c.y - b.y;
+  const d = Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y) || 1;
+  return Math.acos(clamp((v1x * v2x + v1y * v2y) / d, -1, 1)) * 180 / Math.PI;
+}
+const tiltFromVertical = (lo, hi) => Math.atan2(Math.abs(hi.x - lo.x), Math.abs(lo.y - hi.y)) * 180 / Math.PI;
+
+/* One-Euro filter for jitter-free landmarks */
+class OneEuro {
+  constructor(minCut = 1.2, beta = 0.02, dCut = 1.0) { this.minCut = minCut; this.beta = beta; this.dCut = dCut; this.x = null; this.dx = 0; this.t = null; }
+  a(cut, dt) { const r = 2 * Math.PI * cut * dt; return r / (r + 1); }
+  f(x, t) {
+    if (this.t == null) { this.t = t; this.x = x; return x; }
+    const dt = Math.max(1e-3, t - this.t); this.t = t;
+    const dx = (x - this.x) / dt; this.dx += this.a(this.dCut, dt) * (dx - this.dx);
+    const cut = this.minCut + this.beta * Math.abs(this.dx);
+    this.x += this.a(cut, dt) * (x - this.x); return this.x;
+  }
+}
+
+/* ---------------- rep engine (valley → peak = concentric) ---------------- */
+class RepEngine {
+  constructor(minAmp) { this.minAmp = minAmp; this.h = minAmp * 0.3; this.reset(); }
+  reset() { this.state = "valley"; this.vmin = Infinity; this.tv = 0; this.pmax = -Infinity; this.tp = 0; this.buf = []; this.lastT = 0; }
+  push(t, s) {
+    this.buf.push({t, s}); while (this.buf.length && t - this.buf[0].t > 12) this.buf.shift();
+    let rep = null;
+    if (this.state === "valley") {
+      if (s < this.vmin) { this.vmin = s; this.tv = t; }
+      if (s > this.vmin + this.h) { this.state = "peak"; this.pmax = s; this.tp = t; this.tNear = t; }
+    } else {
+      if (s > this.pmax) { if (this.tNear == null || s - this.pmax > this.minAmp * 0.05) this.tNear = t; this.pmax = s; this.tp = t; }
+      const amp = this.pmax - this.vmin;
+      const drop = s < this.pmax - this.h;
+      const plateau = (t - this.tNear > 0.35) && Math.abs(this.slope(0.25)) < amp * 0.25 && s > this.pmax - this.h * 0.8;
+      if (drop || plateau) {
+        if (amp >= this.minAmp) rep = this.measure();
+        this.state = "valley"; this.vmin = s; this.tv = t;
+        if (!rep && !drop) { this.state = "valley"; }
+      }
+    }
+    return rep;
+  }
+  slope(win) {
+    const b = this.buf; if (b.length < 3) return 0;
+    const t1 = b[b.length - 1].t; let i = b.length - 1; while (i > 0 && t1 - b[i].t < win) i--;
+    return (b[b.length - 1].s - b[i].s) / Math.max(1e-3, t1 - b[i].t);
+  }
+  measure() {
+    const A = this.pmax - this.vmin, seg = this.buf.filter(p => p.t >= this.tv && p.t <= this.tp);
+    const cross = lvl => { for (let i = 1; i < seg.length; i++) if (seg[i].s >= lvl) { const a = seg[i - 1], b = seg[i]; const f = (lvl - a.s) / Math.max(1e-9, b.s - a.s); return a.t + clamp(f, 0, 1) * (b.t - a.t); } return seg.length ? seg[seg.length - 1].t : this.tp; };
+    const ta = cross(this.vmin + 0.05 * A), tb = cross(this.pmax - 0.05 * A), tm = cross(this.vmin + 0.5 * A);
+    const s0 = {t:ta}, s1 = {t:tb};
+    const dur = Math.max(0.15, s1.t - s0.t);
+    let peakV = 0;
+    for (let i = 2; i < seg.length; i++) { const v = (seg[i].s - seg[i - 2].s) / Math.max(1e-3, seg[i].t - seg[i - 2].t); if (v > peakV) peakV = v; }
+    return {amp:A, tv:this.tv, tp:this.tp, tm, t0:s0.t, t1:s1.t, conc:dur, meanV:(0.9 * A) / dur, peakV, sMin:this.vmin, sMax:this.pmax};
+  }
+}
+
+/* ---------------- exercise definitions ----------------
+   signal(P, ctx) → value that RISES during the concentric phase.
+   units: "m" (needs calibration) or "°".                         */
+const pick = (P, a, b) => (P[a].v >= P[b].v ? P[a] : P[b]);
+const side = P => ((P[L.ls].v + P[L.le].v + P[L.lw].v + P[L.lh].v + P[L.lk].v) >= (P[L.rs].v + P[L.re].v + P[L.rw].v + P[L.rh].v + P[L.rk].v) ? "l" : "r");
+const S = (P, sd, part) => P[L[sd + part]];
+function viewOf(P) {
+  const sw = dist(P[L.ls], P[L.rs]), torso = dist(mid(P[L.ls], P[L.rs]), mid(P[L.lh], P[L.rh]));
+  return sw / Math.max(1, torso) > 0.42 ? "frontal" : "lateral";
+}
+
+const EX = {
+  squat: {
+    name:"Sentadilla", key:"tv", keyLabel:"abajo", unit:"m/s", sig:"m", minAmp:0.14, needs:[L.lh, L.rh, L.lk, L.rk, L.la, L.ra],
+    signal:(P, k) => -mid(P[L.lh], P[L.rh]).y / k.ppm,
+    trail:P => mid(P[L.lh], P[L.rh]),
+    hud(P, k) { const sd = side(P); return {label:"Rodilla", value:Math.round(angle(S(P, sd, "h"), S(P, sd, "k"), S(P, sd, "a"))) + "°", arc:[S(P, sd, "h"), S(P, sd, "k"), S(P, sd, "a")]}; },
+    depthLabel:"Profundidad",
+    evaluate(rep, F, k) {
+      const bottom = nearest(F, rep.tv), P = bottom.P, view = viewOf(P), sd = side(P), flags = [];
+      const knee = angle(S(P, sd, "h"), S(P, sd, "k"), S(P, sd, "a"));
+      const out = {view, depthCm:rep.amp * 100, knee};
+      if (view === "frontal") {
+        const kd = Math.abs(P[L.lk].x - P[L.rk].x), ad = Math.abs(P[L.la].x - P[L.ra].x);
+        out.kneeRatio = kd / Math.max(1, ad);
+        if (out.kneeRatio < 0.85) flags.push("Rodillas hacia dentro");
+        const tilt = (P[L.lh].y - P[L.rh].y) / k.ppm;
+        if (Math.abs(tilt) > 0.04) flags.push("Cadera desnivelada (cae la " + (tilt > 0 ? "izquierda" : "derecha") + ")");
+      } else {
+        const hip = S(P, sd, "h"), kn = S(P, sd, "k"), sh = S(P, sd, "s");
+        out.parallel = hip.y >= kn.y - 0.02 * k.ppm;
+        if (!out.parallel && knee > 105) flags.push("No llega a paralelo");
+        out.trunk = tiltFromVertical(hip, sh);
+        if (out.trunk > 50) flags.push("Mucha inclinación de tronco");
+      }
+      return {flags, ...out};
+    }
+  },
+  press: {
+    name:"Press militar", key:"tp", keyLabel:"arriba", unit:"m/s", sig:"m", minAmp:0.18, needs:[L.ls, L.rs, L.le, L.re, L.lw, L.rw],
+    signal:(P, k) => (mid(P[L.ls], P[L.rs]).y - mid(P[L.lw], P[L.rw]).y) / k.ppm,
+    trail:P => mid(P[L.lw], P[L.rw]),
+    hud(P) { const sd = side(P); return {label:"Codo", value:Math.round(angle(S(P, sd, "s"), S(P, sd, "e"), S(P, sd, "w"))) + "°", arc:[S(P, sd, "s"), S(P, sd, "e"), S(P, sd, "w")]}; },
+    depthLabel:"Recorrido",
+    evaluate(rep, F, k) {
+      const top = nearest(F, rep.tp).P, view = viewOf(top), flags = [];
+      const el = Math.max(angle(top[L.ls], top[L.le], top[L.lw]), angle(top[L.rs], top[L.re], top[L.rw]));
+      const elAvg = (angle(top[L.ls], top[L.le], top[L.lw]) + angle(top[L.rs], top[L.re], top[L.rw])) / 2;
+      if (elAvg < 158) flags.push("Falta bloquear arriba");
+      if (view === "frontal") {
+        const dy = (top[L.lw].y - top[L.rw].y) / k.ppm;
+        if (Math.abs(dy) > 0.06) flags.push("Un brazo más bajo (" + (dy > 0 ? "izquierdo" : "derecho") + ")");
+      } else {
+        const sd = side(top), lean = tiltFromVertical(S(top, sd, "h"), S(top, sd, "s"));
+        if (lean > 14) flags.push("Arqueas la zona lumbar");
+      }
+      return {flags, view, depthCm:rep.amp * 100, elbow:elAvg, elbowMax:el};
+    }
+  },
+  deadlift: {
+    name:"Peso muerto", key:"tv", keyLabel:"inicio del tirón", unit:"m/s", sig:"m", minAmp:0.2, needs:[L.ls, L.rs, L.lh, L.rh, L.lk, L.rk, L.lw, L.rw],
+    signal:(P, k) => { const sd = side(P); return -S(P, sd, "w").y / k.ppm; },
+    trail:P => S(P, side(P), "w"),
+    hud(P) { const sd = side(P); return {label:"Cadera", value:Math.round(angle(S(P, sd, "s"), S(P, sd, "h"), S(P, sd, "k"))) + "°", arc:[S(P, sd, "s"), S(P, sd, "h"), S(P, sd, "k")]}; },
+    depthLabel:"Recorrido barra",
+    evaluate(rep, F, k) {
+      const flags = [], topP = nearest(F, rep.tp).P, sd = side(topP);
+      const hipTop = angle(S(topP, sd, "s"), S(topP, sd, "h"), S(topP, sd, "k"));
+      if (hipTop < 163) flags.push("Termina de extender la cadera");
+      const seg = F.filter(f => f.t >= rep.tv && f.t <= rep.tp);
+      if (seg.length > 4) {
+        const a = seg[0].P, cut = seg[Math.max(1, Math.floor(seg.length * 0.35))].P;
+        const hipRise = (S(a, sd, "h").y - S(cut, sd, "h").y), shRise = (S(a, sd, "s").y - S(cut, sd, "s").y);
+        if (hipRise > 0.04 * k.ppm && hipRise > 1.8 * Math.max(0.01 * k.ppm, shRise)) flags.push("La cadera sube antes que el pecho");
+        let drift = 0;
+        for (const f of seg) { const ft = mid(S(f.P, sd, "a"), f.P[sd === "l" ? L.lf : L.rf]); drift = Math.max(drift, Math.abs(S(f.P, sd, "w").x - ft.x) / k.ppm); }
+        if (drift > 0.14) flags.push("La barra se separa del cuerpo");
+      }
+      return {flags, view:viewOf(topP), depthCm:rep.amp * 100, hipTop};
+    }
+  },
+  curl: {
+    name:"Curl de bíceps", key:"tp", keyLabel:"arriba", unit:"°/s", sig:"°", minAmp:55, needs:[L.ls, L.rs, L.le, L.re, L.lw, L.rw],
+    arms:true,
+    signalArm:(P, a) => 180 - angle(P[L[a + "s"]], P[L[a + "e"]], P[L[a + "w"]]),
+    trail:null,
+    hud(P) { const sd = side(P); return {label:"Flexión codo", value:Math.round(180 - angle(S(P, sd, "s"), S(P, sd, "e"), S(P, sd, "w"))) + "°", arc:[S(P, sd, "s"), S(P, sd, "e"), S(P, sd, "w")]}; },
+    depthLabel:"Rango",
+    evaluate(rep, F, k) {
+      const flags = [], seg = F.filter(f => f.t >= rep.tv && f.t <= rep.tp);
+      const arms = rep.side === "ambos" ? ["l", "r"] : [rep.side];
+      if (seg.length > 3) {
+        let tmin = 1e9, tmax = -1e9, drift = 0;
+        for (const f of seg) {
+          const hp = mid(f.P[L.lh], f.P[L.rh]), sh = mid(f.P[L.ls], f.P[L.rs]);
+          const tl = Math.atan2(sh.x - hp.x, hp.y - sh.y) * 180 / Math.PI; tmin = Math.min(tmin, tl); tmax = Math.max(tmax, tl);
+        }
+        if (tmax - tmin > 9) flags.push("Balanceo del tronco");
+        for (const a of arms) {
+          const e0 = seg[0].P, e1 = seg[seg.length - 1].P;
+          const r0 = {x:e0[L[a + "e"]].x - e0[L[a + "s"]].x, y:e0[L[a + "e"]].y - e0[L[a + "s"]].y};
+          const r1 = {x:e1[L[a + "e"]].x - e1[L[a + "s"]].x, y:e1[L[a + "e"]].y - e1[L[a + "s"]].y};
+          const up = dist(e0[L[a + "s"]], e0[L[a + "e"]]);
+          drift = Math.max(drift, Math.hypot(r1.x - r0.x, r1.y - r0.y) / Math.max(1, up));
+        }
+        if (drift > 0.32) flags.push("El codo se adelanta");
+      }
+      if (rep.sMin > 40) flags.push("No estira del todo abajo");
+      return {flags, view:viewOf(seg.length ? seg[0].P : F[F.length - 1].P), rom:rep.amp};
+    }
+  }
+};
+function nearest(F, t) { let b = F[0]; for (const f of F) if (Math.abs(f.t - t) < Math.abs(b.t - t)) b = f; return b; }
+
+/* ---------------- app state ---------------- */
+const st = {
+  ex:"squat", client:"", height:170, load:null, vlTarget:20, voice:true, rear:false, autoEnd:true,
+  session:[], landmarker:null, stream:null, running:false
+};
+let set = null;           // current set
+const filters = Array.from({length:33}, () => ({x:new OneEuro(), y:new OneEuro()}));
+
+/* ---------------- setup UI ---------------- */
+document.querySelectorAll(".ex").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".ex").forEach(x => x.setAttribute("aria-pressed", "false"));
+  b.setAttribute("aria-pressed", "true"); st.ex = b.dataset.ex; savePrefs();
+}));
+$("#vl").addEventListener("input", e => { $("#vlv").textContent = e.target.value; });
+function savePrefs() { store.set("vlc.prefs", {ex:st.ex, client:$("#client").value, height:$("#height").value, vl:$("#vl").value, voice:$("#voice").checked, rear:$("#rear").checked, autoend:$("#autoend").checked}); }
+(function loadPrefs() {
+  const p = store.get("vlc.prefs", null); if (!p) return;
+  if (p.ex) { st.ex = p.ex; document.querySelectorAll(".ex").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.ex === p.ex))); }
+  if (p.client) $("#client").value = p.client; if (p.height) $("#height").value = p.height;
+  if (p.vl) { $("#vl").value = p.vl; $("#vlv").textContent = p.vl; }
+  ["voice", "rear", "autoend"].forEach(k => { if (k in p) $("#" + k).checked = p[k]; });
+})();
+renderHistory();
+
+function show(id) { ["setup", "live", "summary"].forEach(v => $("#" + v).hidden = v !== id); }
+
+$("#start").addEventListener("click", () => { st.file = null; startSet(); });
+$("#filebtn").addEventListener("click", () => $("#file").click());
+$("#file").addEventListener("change", e => { const f = e.target.files && e.target.files[0]; if (f) { st.file = f; startSet(); } e.target.value = ""; });
+$("#again").addEventListener("click", () => { st.file = null; startSet(); });
+$("#change").addEventListener("click", () => { stopCamera(); show("setup"); renderHistory(); });
+$("#cancel").addEventListener("click", () => { endSet(true); });
+$("#finish").addEventListener("click", () => endSet(false));
+
+/* ---------------- audio ---------------- */
+let actx = null;
+function beep(freq = 880, dur = 0.09, vol = 0.22) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = freq; o.type = "sine";
+    g.gain.setValueAtTime(vol, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + dur + 0.02);
+  } catch {}
+}
+function say(text) {
+  if (!st.voice || !("speechSynthesis" in window)) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = "es-ES"; u.rate = 1.15; speechSynthesis.speak(u); } catch {}
+}
+
+/* ---------------- model + camera ---------------- */
+async function ensureModel() {
+  if (st.landmarker) return st.landmarker;
+  const {PoseLandmarker, FilesetResolver} = await import(MP_URL);
+  const files = await FilesetResolver.forVisionTasks(WASM_URL);
+  const make = delegate => PoseLandmarker.createFromOptions(files, {
+    baseOptions:{modelAssetPath:MODEL_URL, delegate}, runningMode:"VIDEO", numPoses:1,
+    minPoseDetectionConfidence:0.5, minPosePresenceConfidence:0.5, minTrackingConfidence:0.5
+  });
+  const pref = qs.get("delegate") || "GPU";
+  try { st.landmarker = await make(pref); } catch { st.landmarker = await make("CPU"); }
+  return st.landmarker;
+}
+async function startFile() {
+  stopCamera();
+  const v = $("#video"); v.srcObject = null; v.src = URL.createObjectURL(st.file); v.loop = false; v.muted = true;
+  await new Promise((r, j) => { v.onloadeddata = r; v.onerror = () => j(new Error("No se pudo leer el vídeo")); });
+  v.playbackRate = +(qs.get("rate") || 0.5); v.currentTime = 0; await v.play();
+  v.onended = () => endSet(false);
+}
+async function startCamera() {
+  if (st.file) return startFile();
+  if (st.stream) return;
+  const v0 = $("#video"); if (v0.src && !v0.srcObject) { v0.removeAttribute("src"); v0.load(); }
+  st.stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:st.rear ? "environment" : "user", width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:30}}});
+  const v = $("#video"); v.srcObject = st.stream; await v.play();
+  await new Promise(r => v.readyState >= 2 ? r() : v.addEventListener("loadeddata", r, {once:true}));
+}
+function stopCamera() { if (st.stream) { st.stream.getTracks().forEach(t => t.stop()); st.stream = null; } }
+
+/* ---------------- set lifecycle ---------------- */
+async function startSet() {
+  st.client = $("#client").value.trim(); st.height = clamp(+$("#height").value || 170, 130, 215);
+  st.load = +$("#load").value || null; st.vlTarget = +$("#vl").value; st.voice = $("#voice").checked;
+  const rearNow = $("#rear").checked; if (rearNow !== st.rear) { stopCamera(); st.rear = rearNow; }
+  st.autoEnd = $("#autoend").checked; savePrefs();
+  try { if (st.voice && "speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch {}
+  beep(0, 0.01, 0.0001);
+  show("live"); $("#loading").hidden = false; $("#loading").textContent = "Cargando el modelo de detección…";
+  try {
+    await ensureModel();
+    $("#loading").textContent = "Abriendo la cámara…";
+    await startCamera();
+  } catch (e) {
+    show("setup");
+    $("#setupmsg").innerHTML = st.file
+      ? '<span class="err">No se pudo leer ese vídeo.</span> Prueba con un MP4 o MOV grabado con el iPad o el móvil.'
+      : '<span class="err">No se pudo abrir la cámara o el modelo.</span> Revisa que Safari tenga permiso de cámara (Ajustes › Safari › Cámara) y que haya internet. Detalle: ' + esc(e && e.message ? e.message : String(e));
+    return;
+  }
+  $("#loading").hidden = true;
+  const def = EX[st.ex];
+  set = {
+    ex:st.ex, def, n:st.session.filter(s => s.ex === st.ex).length + 1, t0:performance.now() / 1000, tStartCount:null,
+    phase:"calibrate", calib:[], ppm:null, reps:[], frames:[], trail:[], curve:[], lastMoveT:0, toast:null, stopAlerted:false,
+    engine:def.arms ? null : new RepEngine(def.minAmp), arms:def.arms ? {l:new RepEngine(def.minAmp), r:new RepEngine(def.minAmp)} : null,
+    pendingArm:null, ring:[], snaps:[], snapT:0, recorder:null, chunks:[], videoBlob:null, mime:"", ended:false, lastP:null, lastSeen:0
+  };
+  filters.forEach(f => { f.x = new OneEuro(); f.y = new OneEuro(); });
+  startRecorder();
+  st.running = true; requestAnimationFrame(loop);
+}
+
+function startRecorder() {
+  const cv = $("#stage");
+  if (!cv.captureStream || !window.MediaRecorder) return;
+  const types = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+  const mime = types.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } }) || "";
+  try {
+    const rec = new MediaRecorder(cv.captureStream(30), mime ? {mimeType:mime, videoBitsPerSecond:5e6} : undefined);
+    rec.ondataavailable = e => { if (e.data && e.data.size) set.chunks.push(e.data); };
+    rec.start(500); set.recorder = rec; set.mime = rec.mimeType || mime || "video/webm";
+  } catch {}
+}
+
+async function endSet(cancel) {
+  if (!set || set.ended) return; set.ended = true; st.running = false;
+  const rec = set.recorder;
+  if (rec && rec.state !== "inactive") { await new Promise(r => { rec.onstop = r; rec.stop(); }); }
+  if (set.chunks.length) set.videoBlob = new Blob(set.chunks, {type:set.mime.split(";")[0]});
+  const vv = $("#video"); if (st.file) { vv.pause(); vv.onended = null; }
+  if (cancel || !set.reps.length) { show("setup"); if (!cancel) $("#setupmsg").textContent = "No se contó ninguna repetición. Comprueba que se vea el cuerpo entero y prueba otra vez."; return; }
+  const summary = buildSummary(set);
+  st.session.push(summary);
+  saveHistory(summary);
+  renderSummary(summary);
+  show("summary"); $("#summary").scrollTop = 0;
+}
+
+/* ---------------- main loop ---------------- */
+const cv = $("#stage"), ctx = cv.getContext("2d");
+let lastVideoTime = -1;
+const clock = () => st.file ? $("#video").currentTime : performance.now() / 1000;
+function loop() {
+  if (!st.running) return;
+  const v = $("#video");
+  fitCanvas();
+  const now = clock();
+  let P = null;
+  if (v.readyState >= 2 && v.currentTime !== lastVideoTime) {
+    lastVideoTime = v.currentTime;
+    const res = st.landmarker.detectForVideo(v, performance.now());
+    if (res.landmarks && res.landmarks[0]) {
+      const vw = v.videoWidth, vh = v.videoHeight;
+      P = res.landmarks[0].map((p, i) => ({x:filters[i].x.f(p.x * vw, now), y:filters[i].y.f(p.y * vh, now), v:p.visibility ?? 1}));
+      set.lastP = P; set.lastSeen = now; set.det = (set.det || 0) + 1;
+      try { process(P, now); } catch (err) { console.error(err); set.lastErr = String(err && err.stack || err); }
+    } else if (now - set.lastSeen > 0.5) set.lastP = null;
+  }
+  draw(now);
+  requestAnimationFrame(loop);
+}
+const RING_W = 360;
+function pushRing(t) {
+  const h = Math.round(RING_W * cv.height / cv.width);
+  let c = set.ring.length >= 50 ? set.ring.shift().c : document.createElement("canvas");
+  if (c.width !== RING_W || c.height !== h) { c.width = RING_W; c.height = h; }
+  c.getContext("2d").drawImage(cv, 0, 0, RING_W, h);
+  let box = null;
+  const P = set.lastP;
+  if (P) {
+    const pts = P.filter(p => p.v > 0.4).map(p => [X(p) / view.W, Y(p) / view.H]);
+    if (pts.length > 6) { const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]); box = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; }
+  }
+  set.ring.push({t, c, box});
+}
+function snapAt(t) {
+  if (!set.ring.length) return snapStage();
+  let b = set.ring[0]; for (const r of set.ring) if (Math.abs(r.t - t) < Math.abs(b.t - t)) b = r;
+  return {url:b.c.toDataURL("image/jpeg", 0.85), box:b.box, w:b.c.width, h:b.c.height};
+}
+// crop rect (in image px) around the body box with the requested aspect
+function cropFor(snap, aspect) {
+  const W = snap.w, H = snap.h; let [x0, y0, x1, y1] = snap.box || [0, 0, 1, 1];
+  let cx = (x0 + x1) / 2 * W, cy = (y0 + y1) / 2 * H, bw = (x1 - x0) * W * 1.35, bh = (y1 - y0) * H * 1.2;
+  if (bw / bh > aspect) bh = bw / aspect; else bw = bh * aspect;
+  if (bw > W) { bw = W; bh = bw / aspect; } if (bh > H) { bh = H; bw = bh * aspect; }
+  const x = clamp(cx - bw / 2, 0, W - bw), y = clamp(cy - bh / 2, 0, H - bh);
+  return [x, y, bw, bh];
+}
+function cropURL(snap, aspect, outW) {
+  const [x, y, w, h] = cropFor(snap, aspect), c = document.createElement("canvas");
+  c.width = outW; c.height = Math.round(outW / aspect);
+  return new Promise(r => { const i = new Image(); i.onload = () => { c.getContext("2d").drawImage(i, x, y, w, h, 0, 0, c.width, c.height); r(c.toDataURL("image/jpeg", 0.88)); }; i.onerror = () => r(snap.url); i.src = snap.url; });
+}
+
+function visibleAll(P, ids, thr = 0.5) { return ids.every(i => P[i].v >= thr); }
+
+function process(P, t) {
+  const def = set.def;
+  // ---- calibration: standing still, full body visible ----
+  if (set.phase === "calibrate") {
+    const body = [L.nose, L.la, L.ra, L.lh, L.rh];
+    if (visibleAll(P, body, 0.55)) {
+      const hpx = mid(P[L.la], P[L.ra]).y - P[L.nose].y;
+      set.calib.push({t, hpx});
+      set.calib = set.calib.filter(c => t - c.t < 1.2);
+      const arr = set.calib.map(c => c.hpx), mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+      const still = arr.length > 15 && Math.max(...arr) - Math.min(...arr) < mean * 0.03 && (t - set.calib[0].t) > 0.9;
+      if (still) {
+        set.ppm = mean / (0.87 * st.height / 100);
+        set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; beep(1320, 0.12); say("Vamos");
+      }
+    } else set.calib = [];
+    // fallback: feet out of frame (e.g. curl close to the camera) → scale from torso ≈ 0.29·height
+    set.firstSeen = set.firstSeen || t;
+    if (t - set.firstSeen > 3.5 && visibleAll(P, [L.ls, L.rs, L.lh, L.rh], 0.5) && visibleAll(P, def.needs, 0.4)) {
+      const torso = dist(mid(P[L.ls], P[L.rs]), mid(P[L.lh], P[L.rh]));
+      set.ppm = torso / (0.29 * st.height / 100); set.approxCal = true;
+      set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; beep(1320, 0.12); say("Vamos");
+    }
+    return;
+  }
+  // fallback scale if somebody wants to start without feet visible: torso ≈ 0.29·altura
+  const k = {ppm:set.ppm};
+  if (!visibleAll(P, def.needs, 0.35)) return;
+
+  // store frame for technique evaluation (last 12 s)
+  set.frames.push({t, P}); while (set.frames.length && t - set.frames[0].t > 12) set.frames.shift();
+  const tr = def.trail ? def.trail(P) : mid(P[L.lw], P[L.rw]);
+  set.trail.push({t, x:tr.x, y:tr.y}); while (set.trail.length && t - set.trail[0].t > 2.2) set.trail.shift();
+
+  let rep = null;
+  if (def.arms) {
+    const sL = def.signalArm(P, "l"), sR = def.signalArm(P, "r");
+    set.curve.push({t:t - set.tStartCount, s:Math.max(sL, sR)});
+    const rl = (P[L.lw].v > 0.35 && P[L.le].v > 0.35) ? set.arms.l.push(t, sL) : null;
+    const rr = (P[L.rw].v > 0.35 && P[L.re].v > 0.35) ? set.arms.r.push(t, sR) : null;
+    for (const [r, sd] of [[rl, "l"], [rr, "r"]]) {
+      if (!r) continue;
+      r.side = sd;
+      if (set.pendingArm && set.pendingArm.side !== sd && Math.abs(set.pendingArm.tm - r.tm) < 0.7) {
+        const a = set.pendingArm; set.pendingArm = null;
+        rep = {...(a.meanV >= r.meanV ? a : r), side:"ambos", amp:(a.amp + r.amp) / 2, meanV:(a.meanV + r.meanV) / 2, sMin:Math.max(a.sMin, r.sMin), ampL:sd === "l" ? r.amp : a.amp, ampR:sd === "r" ? r.amp : a.amp};
+      } else {
+        if (set.pendingArm) { rep = set.pendingArm; }
+        set.pendingArm = r;
+      }
+    }
+    if (!rep && set.pendingArm && t - set.pendingArm.tp > 0.9) { rep = set.pendingArm; set.pendingArm = null; }
+  } else {
+    const s = def.signal(P, k);
+    set.curve.push({t:t - set.tStartCount, s});
+    rep = set.engine.push(t, s);
+  }
+  // movement watchdog for auto-end
+  const recent = set.curve.slice(-8).map(c => c.s);
+  if (recent.length > 4) { const span = Math.max(...recent) - Math.min(...recent); if (span > def.minAmp * 0.12) set.lastMoveT = t; }
+  if (rep) onRep(rep, t);
+  if (st.autoEnd && set.reps.length && t - set.lastMoveT > 5 && !set.pendingArm) endSet(false);
+}
+
+function onRep(rep, t) {
+  const def = set.def;
+  const ev = def.evaluate(rep, set.frames, {ppm:set.ppm});
+  rep.flags = ev.flags; rep.ev = ev; rep.n = set.reps.length + 1;
+  set.reps.push(rep);
+  const best = Math.max(...set.reps.map(r => r.meanV));
+  rep.loss = Math.max(0, (best - rep.meanV) / best * 100);
+  // snapshot of the stage at the end of the concentric (overlay included)
+  rep.snap = snapAt(rep[def.key] ?? rep.tp);
+  if (rep.flags.length) set.toast = {text:`Rep ${rep.n} · ${rep.flags[0]}`, t, col:C.amber};
+  if (rep.loss >= st.vlTarget && set.reps.length > 1) {
+    beep(440, 0.25, 0.3); setTimeout(() => beep(440, 0.25, 0.3), 280);
+    if (!set.stopAlerted) { say(`${rep.n}. Para, pérdida del ${Math.round(rep.loss)} por ciento`); set.stopAlerted = true; }
+    set.toast = {text:`Pérdida ${Math.round(rep.loss)} % · objetivo ${st.vlTarget} % → corta la serie`, t, col:C.red};
+  } else { beep(1100, 0.08); say(String(rep.n)); }
+}
+
+function snapStage() {
+  const w = 360, h = Math.round(w * cv.height / cv.width);
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d").drawImage(cv, 0, 0, w, h);
+  return {url:c.toDataURL("image/jpeg", 0.82), box:null, w, h};
+}
+
+/* ---------------- drawing ---------------- */
+let view = {s:1, ox:0, oy:0, W:0, H:0, dpr:1};
+function fitCanvas() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.6);
+  const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const v = $("#video"), vw = v.videoWidth || 1280, vh = v.videoHeight || 720;
+  const ra = (W / H) / (vw / vh);
+  const s = (ra > 0.85 && ra < 1.18) ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);  // cover only when aspects match; never crop the body
+  view = {s, ox:(W - vw * s) / 2, oy:(H - vh * s) / 2, W, H, dpr, vw, vh, mirror:!st.rear};
+}
+const X = p => view.mirror ? view.W - (view.ox + p.x * view.s) : view.ox + p.x * view.s;
+const Y = p => view.oy + p.y * view.s;
+const U = n => n * view.dpr * Math.max(0.8, Math.min(1.4, Math.min(view.W, view.H) / view.dpr / 760));
+
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
+function txt(s, x, y, font, col, align = "left", base = "alphabetic") { ctx.font = font; ctx.fillStyle = col; ctx.textAlign = align; ctx.textBaseline = base; ctx.fillText(s, x, y); }
+
+function draw(now) {
+  const v = $("#video"); const W = view.W, H = view.H;
+  ctx.fillStyle = "#0a0e13"; ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  if (view.mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
+  if (v.readyState >= 2) ctx.drawImage(v, view.ox, view.oy, view.vw * view.s, view.vh * view.s);
+  ctx.restore();
+  // legibility gradients
+  let g = ctx.createLinearGradient(0, 0, 0, H * 0.28); g.addColorStop(0, "rgba(0,0,0,.6)"); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.28);
+  g = ctx.createLinearGradient(0, H, 0, H * 0.62); g.addColorStop(0, "rgba(0,0,0,.65)"); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.fillStyle = g; ctx.fillRect(0, H * 0.62, W, H * 0.38);
+
+  const P = set && set.lastP;
+  if (P) drawBody(P, now);
+  if (set && set.phase === "count" && now - (set.ringT || 0) > 0.08) { set.ringT = now; pushRing(now); }  // key frames without HUD
+  drawHUD(now);
+}
+
+function drawBody(P, now) {
+  const def = set.def;
+  const seg = (a, b, col, w) => { if (P[a].v < 0.3 || P[b].v < 0.3) return; ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(X(P[a]), Y(P[a])); ctx.lineTo(X(P[b]), Y(P[b])); ctx.stroke(); };
+  const W1 = U(3);
+  ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = U(6);
+  [[L.ls, L.lh], [L.rs, L.rh], [L.lh, L.lk], [L.lk, L.la], [L.rh, L.rk], [L.rk, L.ra], [L.la, L.lf], [L.ra, L.rf], [L.ls, L.le], [L.le, L.lw], [L.rs, L.re], [L.re, L.rw]].forEach(([a, b]) => seg(a, b, "rgba(255,255,255,.85)", W1));
+  // shoulder / hip lines extended (like the golf analysis)
+  const ext = (a, b, k, col, w) => {
+    if (P[a].v < 0.3 || P[b].v < 0.3) return;
+    const dx = P[b].x - P[a].x, dy = P[b].y - P[a].y;
+    const p1 = {x:P[a].x - dx * k, y:P[a].y - dy * k}, p2 = {x:P[b].x + dx * k, y:P[b].y + dy * k};
+    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(X(p1), Y(p1)); ctx.lineTo(X(p2), Y(p2)); ctx.stroke();
+  };
+  ext(L.rs, L.ls, 0.35, C.cyan, U(4.5));
+  ext(L.rh, L.lh, 0.6, C.amber, U(4.5));
+  ctx.shadowBlur = 0;
+  for (const j of [L.ls, L.rs, L.le, L.re, L.lw, L.rw, L.lh, L.rh, L.lk, L.rk, L.la, L.ra]) {
+    if (P[j].v < 0.3) continue; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(X(P[j]), Y(P[j]), U(5.5), 0, 7); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.5)"; ctx.lineWidth = U(1.2); ctx.stroke();
+  }
+  // trail (hip / bar / wrists)
+  if (set.trail.length > 2 && def.trail) {
+    for (let i = 1; i < set.trail.length; i++) {
+      const a = set.trail[i - 1], b = set.trail[i], age = now - b.t;
+      ctx.strokeStyle = `rgba(61,214,245,${clamp(1 - age / 2.2, 0, 1) * 0.95})`; ctx.lineWidth = U(4);
+      ctx.beginPath(); ctx.moveTo(X(a), Y(a)); ctx.lineTo(X(b), Y(b)); ctx.stroke();
+    }
+    const last = set.trail[set.trail.length - 1];
+    ctx.fillStyle = C.cyan; ctx.beginPath(); ctx.arc(X(last), Y(last), U(8), 0, 7); ctx.fill();
+    ctx.strokeStyle = "#05212a"; ctx.lineWidth = U(2); ctx.stroke();
+  }
+  // live joint angle arc + label
+  const h = def.hud(P, {ppm:set.ppm});
+  if (h && h.arc && h.arc.every(p => p.v > 0.3)) {
+    const [a, b, c] = h.arc, bx = X(b), by = Y(b);
+    const a1 = Math.atan2(Y(a) - by, X(a) - bx), a2 = Math.atan2(Y(c) - by, X(c) - bx);
+    let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    ctx.fillStyle = "rgba(61,214,245,.22)"; ctx.strokeStyle = C.cyan; ctx.lineWidth = U(2.5);
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.arc(bx, by, U(38), a1, a1 + d, d < 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    const lx = bx + U(46) * (view.mirror ? -1 : 1) * (side(P) === "l" ? 1 : -1), ly = by - U(10);
+    const s = h.value; ctx.font = `700 ${U(26)}px ${FD}`; const w = ctx.measureText(s).width + U(20);
+    rr(lx - w / 2, ly - U(20), w, U(36), U(10)); ctx.fillStyle = "rgba(0,0,0,.72)"; ctx.fill(); ctx.strokeStyle = C.cyan; ctx.lineWidth = U(1.5); ctx.stroke();
+    txt(s, lx, ly - U(1), `700 ${U(26)}px ${FD}`, "#fff", "center", "middle");
+  }
+}
+
+function panel(x, y, w, h) { rr(x, y, w, h, U(16)); ctx.fillStyle = C.panel; ctx.fill(); ctx.strokeStyle = C.line; ctx.lineWidth = U(1); ctx.stroke(); }
+
+function drawHUD(now) {
+  const W = view.W, H = view.H, m = U(22), def = set.def;
+  // brand + title
+  ctx.font = `700 ${U(15)}px ${FB}`; const bw = ctx.measureText("FITNESS VLC").width + U(26);
+  rr(m, m, bw, U(32), U(16)); ctx.fillStyle = C.brand; ctx.fill();
+  txt("FITNESS VLC", m + bw / 2, m + U(16.5), `700 ${U(15)}px ${FB}`, "#fff", "center", "middle");
+  txt(def.name, m, m + U(76), `700 ${U(46)}px ${FD}`, "#fff");
+  const sub = [st.client || "Cliente", `Serie ${set.n}`, st.load ? `${fmt(st.load, st.load % 1 ? 1 : 0)} kg` : null].filter(Boolean).join(" · ");
+  txt(sub, m, m + U(104), `600 ${U(19)}px ${FB}`, "rgba(238,242,246,.85)");
+
+  // status chip (top right)
+  let chip, col;
+  if (set.phase === "calibrate") { chip = set.lastP ? "QUIETO 1 SEGUNDO · CALIBRANDO" : "COLÓCATE: CUERPO ENTERO"; col = C.amber; }
+  else { const s = Math.floor(now - set.tStartCount); chip = `CONTANDO  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; col = C.green; }
+  if (st.file && set.phase !== "calibrate") { chip = "ANALIZANDO VÍDEO  " + chip.replace("CONTANDO  ", ""); }
+  if (set.lastP && set.phase !== "calibrate" && !visibleAll(set.lastP, def.needs, 0.35)) { chip = "NO SE VE BIEN · ACÉRCATE O ALÉJATE"; col = C.amber; }
+  ctx.font = `700 ${U(15)}px ${FB}`; const cw = ctx.measureText(chip).width + U(44);
+  rr(W - m - cw, m, cw, U(34), U(17)); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = U(2); ctx.stroke();
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(W - m - cw + U(17), m + U(17), U(5), 0, 7); ctx.fill();
+  txt(chip, W - m - cw + U(30), m + U(17.5), `700 ${U(15)}px ${FB}`, col, "left", "middle");
+
+  // calibration overlay frame
+  if (set.phase === "calibrate") {
+    ctx.setLineDash([U(14), U(10)]); ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = U(2.5);
+    const fw = Math.min(W * 0.5, H * 0.36), fh = H * 0.7; rr((W - fw) / 2, H * 0.14, fw, fh, U(24)); ctx.stroke(); ctx.setLineDash([]);
+    txt("De pie, quieto, que se vea de la cabeza a los pies", W / 2, H * 0.14 + fh + U(40), `600 ${U(22)}px ${FB}`, "#fff", "center");
+    return;
+  }
+
+  // big rep counter (bottom right)
+  const reps = set.reps.length, bottom = H - U(96);
+  txt(String(reps), W - m, bottom, `700 ${U(170)}px ${FD}`, "#fff", "right");
+  txt("REPS", W - m - U(4), bottom + U(26), `700 ${U(16)}px ${FB}`, C.muted, "right");
+
+  // velocity panel (bottom left)
+  const pw = Math.min(U(380), W * 0.56), ph = U(176), px = m, py = bottom - ph + U(26);
+  panel(px, py, pw, ph);
+  const last = set.reps[reps - 1];
+  txt(def.unit === "°/s" ? "VELOCIDAD DE SUBIDA" : "VELOCIDAD MEDIA DE SUBIDA", px + U(16), py + U(26), `700 ${U(13)}px ${FB}`, C.muted);
+  const vtxt = last ? (def.unit === "°/s" ? `${Math.round(last.meanV)}` : fmt(last.meanV, 2)) : "—";
+  txt(vtxt, px + U(16), py + U(76), `700 ${U(50)}px ${FD}`, "#fff");
+  ctx.font = `700 ${U(50)}px ${FD}`; const vw2 = ctx.measureText(vtxt).width;
+  txt(def.unit, px + U(22) + vw2, py + U(76), `600 ${U(18)}px ${FB}`, C.muted);
+  // loss
+  if (last) {
+    const lossCol = last.loss >= st.vlTarget ? C.red : last.loss >= st.vlTarget * 0.6 ? C.amber : C.green;
+    txt(`−${Math.round(last.loss)} %`, px + pw - U(16), py + U(60), `700 ${U(34)}px ${FD}`, lossCol, "right");
+    txt(`pérdida · corte ${st.vlTarget} %`, px + pw - U(16), py + U(80), `600 ${U(12)}px ${FB}`, C.muted, "right");
+  }
+  // bars
+  const bx0 = px + U(16), bw0 = pw - U(32), by0 = py + ph - U(16), bh0 = U(62);
+  const maxV = Math.max(...set.reps.map(r => r.meanV), 0.0001), n = Math.max(set.reps.length, 6);
+  const gap = U(4), bw1 = (bw0 - gap * (n - 1)) / n;
+  // threshold line
+  const thrY = by0 - bh0 * (1 - st.vlTarget / 100);
+  ctx.setLineDash([U(5), U(5)]); ctx.strokeStyle = "rgba(255,77,77,.7)"; ctx.lineWidth = U(1.5); ctx.beginPath(); ctx.moveTo(bx0, thrY); ctx.lineTo(bx0 + bw0, thrY); ctx.stroke(); ctx.setLineDash([]);
+  set.reps.forEach((r, i) => {
+    const h = bh0 * r.meanV / maxV, x = bx0 + i * (bw1 + gap);
+    ctx.fillStyle = r.loss >= st.vlTarget ? C.red : r.loss >= st.vlTarget * 0.6 ? C.amber : C.cyan;
+    rr(x, by0 - h, bw1, h, U(3)); ctx.fill();
+  });
+
+  // toast
+  if (set.toast && now - set.toast.t < 2.6) {
+    const a = clamp(1 - (now - set.toast.t - 2.1) / 0.5, 0, 1);
+    ctx.globalAlpha = a; ctx.font = `700 ${U(22)}px ${FB}`;
+    const tw = ctx.measureText(set.toast.text).width + U(40), tx = (W - tw) / 2, ty = m + U(130);
+    rr(tx, ty, tw, U(50), U(14)); ctx.fillStyle = "rgba(0,0,0,.78)"; ctx.fill(); ctx.strokeStyle = set.toast.col; ctx.lineWidth = U(2.5); ctx.stroke();
+    txt(set.toast.text, W / 2, ty + U(26), `700 ${U(22)}px ${FB}`, set.toast.col, "center", "middle");
+    ctx.globalAlpha = 1;
+  }
+  // footnote
+  txt("Estimación por visión artificial · 1 cámara", m, H - U(64), `500 ${U(12)}px ${FB}`, "rgba(255,255,255,.55)");
+}
+
+/* ---------------- summary ---------------- */
+function buildSummary(s) {
+  const def = s.def, reps = s.reps;
+  const vs = reps.map(r => r.meanV), best = Math.max(...vs), bestI = vs.indexOf(best);
+  const worst = Math.min(...vs), worstI = vs.indexOf(worst), lastLoss = reps[reps.length - 1].loss;
+  const maxLoss = Math.max(...reps.map(r => r.loss));
+  const tail = reps.slice(-2), finalLoss = tail.reduce((a, r) => a + r.loss, 0) / tail.length;
+  const amps = reps.map(r => r.amp), ampMean = amps.reduce((a, b) => a + b, 0) / amps.length;
+  const ampCV = Math.sqrt(amps.reduce((a, b) => a + (b - ampMean) ** 2, 0) / amps.length) / ampMean * 100;
+  const deepI = amps.indexOf(Math.max(...amps));
+  const tut = reps.reduce((a, r) => a + r.conc, 0);
+  const flagCount = {}; reps.forEach(r => r.flags.forEach(f => { (flagCount[f] = flagCount[f] || []).push(r.n); }));
+  return {
+    id:Date.now(), date:new Date(), ex:s.ex, name:def.name, unit:def.unit, sig:def.sig, client:st.client, load:st.load, n:s.n, vlTarget:st.vlTarget,
+    reps, best, bestI, worst, worstI, lastLoss, maxLoss, finalLoss, ampMean, ampCV, deepI, tut, flagCount,
+    curve:s.curve, video:s.videoBlob, mime:s.mime, view:reps[0].ev.view, t0:s.tStartCount, approxCal:!!s.approxCal
+  };
+}
+
+function vfmt(sm, v) { return sm.unit === "°/s" ? `${Math.round(v)} °/s` : `${fmt(v, 2)} m/s`; }
+function afmt(sm, a) { return sm.sig === "°" ? `${Math.round(a)}°` : `${Math.round(a * 100)} cm`; }
+
+function verdictOf(sm) {
+  const L1 = Math.round(sm.finalLoss), tgt = sm.vlTarget;
+  let col, txt1, txt2;
+  if (L1 < 10) { col = C.green; txt1 = `La velocidad apenas cayó (${L1} %).`; txt2 = "La serie quedó lejos del fallo: hay margen para subir carga o repeticiones."; }
+  else if (L1 < tgt) { col = C.cyan; txt1 = `Pérdida de velocidad del ${L1} %, por debajo del objetivo (${tgt} %).`; txt2 = "Zona de trabajo buena; si quieres más estímulo, alarga la serie hasta el corte."; }
+  else if (L1 < tgt + 10) { col = C.amber; txt1 = `Llegó al corte: perdió un ${L1} % de velocidad.`; txt2 = "Serie cerca del fallo. Mantén la carga en la siguiente."; }
+  else { col = C.red; txt1 = `Pérdida del ${L1} %, muy por encima del objetivo (${tgt} %).`; txt2 = "Fatiga alta: corta antes o baja un poco la carga en la siguiente serie."; }
+  const topFlag = Object.entries(sm.flagCount).sort((a, b) => b[1].length - a[1].length)[0];
+  const t3 = topFlag ? ` Técnica: «${topFlag[0]}» en ${topFlag[1].length} de ${sm.reps.length} reps.` : " Técnica sin avisos en esta serie.";
+  return {col, html:`<b>${txt1}</b> ${txt2}${t3}`};
+}
+
+function renderSummary(sm) {
+  $("#t-sum").textContent = sm.name;
+  const dt = sm.date.toLocaleDateString("es-ES", {day:"numeric", month:"short"}) + " · " + sm.date.toLocaleTimeString("es-ES", {hour:"2-digit", minute:"2-digit"});
+  $("#s-meta").textContent = [sm.client || "Cliente", `Serie ${sm.n}`, sm.load ? `${sm.load} kg` : null, `Cámara ${sm.view === "frontal" ? "de frente" : "de lado"}`, dt].filter(Boolean).join(" · ");
+  const vd = verdictOf(sm);
+  $("#verdict").style.borderColor = vd.col; $("#verdict .dot").style.background = vd.col; $("#verdict p").innerHTML = vd.html;
+
+  const rv = $("#replay");
+  if (sm.video) { rv.src = URL.createObjectURL(sm.video); rv.hidden = false; } else { rv.hidden = true; }
+  const k = $("#keys"); k.innerHTML = "";
+  const keyItems = [
+    [sm.bestI, "Rep más rápida", vfmt(sm, sm.best)],
+    [sm.worstI, "Rep más lenta", vfmt(sm, sm.worst)],
+    [sm.deepI, sm.sig === "°" ? "Más rango" : "Más recorrido", afmt(sm, sm.reps[sm.deepI].amp)]
+  ];
+  for (const [i, lab, val] of keyItems) {
+    const r = sm.reps[i]; const d = document.createElement("div"); d.className = "key";
+    d.innerHTML = `<img alt="${lab}, repetición ${r.n}, ${EX[sm.ex].keyLabel}"><span>${lab} · rep ${r.n}<b>${val}</b></span>`;
+    cropURL(r.snap, 3 / 4, 300).then(u => { d.querySelector("img").src = u; }); k.appendChild(d);
+  }
+
+  const tiles = [
+    ["Repeticiones", String(sm.reps.length), `${fmt(sm.tut, 1)} s de subida en total`],
+    ["Mejor velocidad", vfmt(sm, sm.best), `rep ${sm.reps[sm.bestI].n}`],
+    ["Pérdida de velocidad", `${Math.round(sm.finalLoss)} %`, `últimas reps vs mejor · máx ${Math.round(sm.maxLoss)} % · corte ${sm.vlTarget} %`],
+    [EX[sm.ex].depthLabel + " medio", afmt(sm, sm.ampMean), `variación entre reps ${Math.round(sm.ampCV)} %`]
+  ];
+  $("#tiles").innerHTML = tiles.map(([l, v, s]) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+
+  $("#velh").textContent = `Velocidad de cada repetición (${sm.unit})`;
+  $("#velchart").innerHTML = velSVG(sm);
+  $("#curve").innerHTML = curveSVG(sm);
+
+  const fl = Object.entries(sm.flagCount).sort((a, b) => b[1].length - a[1].length);
+  $("#flags").innerHTML = fl.length ? fl.map(([f, ns]) => `<li>${f}<small>reps ${ns.join(", ")}</small></li>`).join("")
+    : `<li class="ok">Sin avisos técnicos en esta serie<small>${sm.reps.length} reps revisadas</small></li>`;
+
+  const today = st.session.filter(s => s.ex === sm.ex);
+  $("#sessions").innerHTML = today.map(s => `<div class="sess ${s.id === sm.id ? "cur" : ""}"><div class="eyebrow">Serie ${s.n}${s.load ? " · " + s.load + " kg" : ""}</div><b>${s.reps.length} reps</b><div class="note">mejor ${vfmt(s, s.best)} · −${Math.round(s.finalLoss)} %</div></div>`).join("");
+
+  $("#shareimg").onclick = () => shareImage(sm);
+  $("#sharevid").onclick = () => shareVideo(sm);
+  $("#sharevid").hidden = !sm.video;
+}
+
+function velSVG(sm) {
+  const W = 560, H = 210, pl = 44, pr = 12, pt = 16, pb = 30, n = sm.reps.length;
+  const max = Math.max(...sm.reps.map(r => r.meanV)) * 1.12, bw = (W - pl - pr) / n;
+  const y = v => pt + (H - pt - pb) * (1 - v / max);
+  const ticks = [0, 0.5, 1].map(f => max / 1.12 * f);
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Velocidad por repetición">`;
+  ticks.forEach(t => { s += `<line x1="${pl}" x2="${W - pr}" y1="${y(t)}" y2="${y(t)}" stroke="rgba(255,255,255,.1)"/><text x="${pl - 8}" y="${y(t) + 4}" fill="${C.muted}" font-size="12" text-anchor="end" font-family="Barlow">${sm.unit === "°/s" ? Math.round(t) : fmt(t, 2)}</text>`; });
+  const thr = sm.best * (1 - sm.vlTarget / 100);
+  s += `<line x1="${pl}" x2="${W - pr}" y1="${y(thr)}" y2="${y(thr)}" stroke="${C.red}" stroke-dasharray="6 5" stroke-width="1.5"/><text x="${W - pr}" y="${y(thr) - 6}" fill="${C.red}" font-size="12" text-anchor="end" font-family="Barlow" font-weight="600">corte −${sm.vlTarget} %</text>`;
+  sm.reps.forEach((r, i) => {
+    const col = r.loss >= sm.vlTarget ? C.red : r.loss >= sm.vlTarget * 0.6 ? C.amber : C.cyan;
+    const x = pl + i * bw + bw * 0.15, w = bw * 0.7;
+    s += `<rect x="${x}" y="${y(r.meanV)}" width="${w}" height="${y(0) - y(r.meanV)}" rx="4" fill="${col}"/>`;
+    s += `<text x="${x + w / 2}" y="${H - 10}" fill="${C.muted}" font-size="12" text-anchor="middle" font-family="Barlow">${r.n}</text>`;
+    if (r.flags.length) s += `<circle cx="${x + w / 2}" cy="${y(r.meanV) - 8}" r="4" fill="${C.amber}"/>`;
+  });
+  return s + "</svg>";
+}
+
+function curveSVG(sm) {
+  const c = sm.curve; if (c.length < 2) return "";
+  const W = 1100, H = 190, pl = 44, pr = 12, pt = 12, pb = 28;
+  const t1 = c[c.length - 1].t, smin = Math.min(...c.map(p => p.s)), smax = Math.max(...c.map(p => p.s));
+  const x = t => pl + (W - pl - pr) * t / t1, y = v => pt + (H - pt - pb) * (1 - (v - smin) / Math.max(1e-6, smax - smin));
+  let d = ""; const step = Math.max(1, Math.floor(c.length / 600));
+  for (let i = 0; i < c.length; i += step) d += (i ? "L" : "M") + x(c[i].t).toFixed(1) + " " + y(c[i].s).toFixed(1);
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Recorrido a lo largo de la serie">`;
+  for (let tt = 0; tt <= t1; tt += 5) s += `<line x1="${x(tt)}" x2="${x(tt)}" y1="${pt}" y2="${H - pb}" stroke="rgba(255,255,255,.07)"/><text x="${x(tt)}" y="${H - 8}" fill="${C.muted}" font-size="12" text-anchor="middle" font-family="Barlow">${tt} s</text>`;
+  s += `<path d="${d} L${x(t1)} ${H - pb} L${pl} ${H - pb}Z" fill="rgba(61,214,245,.12)"/><path d="${d}" fill="none" stroke="${C.cyan}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  sm.reps.forEach(r => { const tt = r.tp - sm.t0; if (tt < 0 || tt > t1) return; s += `<circle cx="${x(tt)}" cy="${y(r.sMax)}" r="5" fill="${r.flags.length ? C.amber : "#fff"}"/><text x="${x(tt)}" y="${y(r.sMax) - 10}" fill="#fff" font-size="12" text-anchor="middle" font-family="Barlow" font-weight="700">${r.n}</text>`; });
+  s += `<text x="${pl - 8}" y="${pt + 10}" fill="${C.muted}" font-size="12" text-anchor="end" font-family="Barlow">${sm.sig === "°" ? "flexión" : "altura"}</text>`;
+  return s + "</svg>";
+}
+
+/* ---------------- shareable image (1080×1920, golf-style) ---------------- */
+async function loadImg(src) { return new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; }); }
+async function buildCard(sm) {
+  const W = 1080, H = 1920, c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
+  const t = (s, x, y, f, col, al = "left") => { g.font = f; g.fillStyle = col; g.textAlign = al; g.textBaseline = "alphabetic"; g.fillText(s, x, y); };
+  const R = (x, y, w, h, r) => { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); };
+  g.fillStyle = "#0a0e13"; g.fillRect(0, 0, W, H);
+  const M = 110; // Instagram/WhatsApp safe margins
+  const sn = sm.reps[sm.deepI].snap, im = await loadImg(sn.url);
+  if (im) { const iw = 980, ih = 860, [cx, cy, cw, ch] = cropFor(sn, iw / ih); g.save(); R(50, 210, iw, ih, 28); g.clip(); g.drawImage(im, cx, cy, cw, ch, 50, 210, iw, ih); g.restore(); }
+  const grad = g.createLinearGradient(0, 760, 0, 1080); grad.addColorStop(0, "rgba(10,14,19,0)"); grad.addColorStop(1, "rgba(10,14,19,1)"); g.fillStyle = grad; g.fillRect(0, 760, W, 330);
+  R(M, 110, 200, 46, 23); g.fillStyle = C.brand; g.fill(); t("FITNESS VLC", M + 100, 141, `700 22px ${FB}`, "#fff", "center");
+  t(sm.date.toLocaleDateString("es-ES", {day:"numeric", month:"long"}), W - M, 141, `600 22px ${FB}`, C.muted, "right");
+  t(sm.name, M, 1000, `700 92px ${FD}`, "#fff");
+  t([sm.client || "Cliente", `Serie ${sm.n}`, sm.load ? `${sm.load} kg` : null].filter(Boolean).join(" · "), M, 1048, `600 30px ${FB}`, "rgba(238,242,246,.85)");
+  const tiles = [["REPS", String(sm.reps.length)], ["MEJOR VELOCIDAD", vfmt(sm, sm.best)], ["PÉRDIDA", `${Math.round(sm.finalLoss)} %`], [EX[sm.ex].depthLabel.toUpperCase(), afmt(sm, sm.ampMean)]];
+  tiles.forEach(([l, v], i) => { const x = M + (i % 2) * 435, y = 1090 + Math.floor(i / 2) * 150; R(x, y, 425, 136, 20); g.fillStyle = "#121820"; g.fill(); g.strokeStyle = "rgba(255,255,255,.12)"; g.stroke(); t(l, x + 22, y + 38, `600 20px ${FB}`, C.muted); t(v, x + 22, y + 108, `700 62px ${FD}`, "#fff"); });
+  // bars
+  const bx = M, by = 1585, bw = 860, bh = 135, n = sm.reps.length, max = sm.best * 1.05, gw = bw / n;
+  t("VELOCIDAD POR REP", bx, 1422, `600 20px ${FB}`, C.muted);
+  const thrY = by - bh * (sm.best * (1 - sm.vlTarget / 100)) / max; g.setLineDash([10, 8]); g.strokeStyle = C.red; g.lineWidth = 2; g.beginPath(); g.moveTo(bx, thrY); g.lineTo(bx + bw, thrY); g.stroke(); g.setLineDash([]);
+  sm.reps.forEach((r, i) => { const h = bh * r.meanV / max; g.fillStyle = r.loss >= sm.vlTarget ? C.red : r.loss >= sm.vlTarget * 0.6 ? C.amber : C.cyan; R(bx + i * gw + gw * 0.15, by - h, gw * 0.7, h, 6); g.fill(); t(String(r.n), bx + i * gw + gw / 2, by + 30, `600 20px ${FB}`, C.muted, "center"); });
+  // verdict
+  const vd = verdictOf(sm), plain = vd.html.replace(/<[^>]+>/g, "");
+  g.font = `600 27px ${FB}`; const words = plain.split(" "); let line = "", yy = 1680, lines = 0;
+  g.fillStyle = vd.col; g.fillRect(M, 1655, 6, 140);
+  for (const w of words) { const test = line ? line + " " + w : w; if (g.measureText(test).width > 830 && line) { t(line, M + 24, yy, `600 27px ${FB}`, "#fff"); line = w; yy += 38; if (++lines >= 4) { line = ""; break; } } else line = test; }
+  if (line) t(line, M + 24, yy, `600 27px ${FB}`, "#fff");
+  t("Estimación por visión artificial · 1 cámara", M, 1850, `500 20px ${FB}`, C.muted);
+  t("personaltrainervlc.com", W - M, 1850, `600 20px ${FB}`, C.muted, "right");
+  return new Promise(r => c.toBlob(r, "image/png"));
+}
+async function shareBlob(blob, name, title) {
+  const file = new File([blob], name, {type:blob.type});
+  try { if (navigator.canShare && navigator.canShare({files:[file]})) { await navigator.share({files:[file], title}); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+async function shareImage(sm) { const b = await buildCard(sm); shareBlob(b, `${slug(sm)}.png`, `${sm.name} · ${sm.client || "resumen"}`); }
+function shareVideo(sm) { if (!sm.video) return; const ext = sm.mime.includes("mp4") ? "mp4" : "webm"; shareBlob(sm.video, `${slug(sm)}.${ext}`, `${sm.name} · replay`); }
+function slug(sm) { return `${(sm.client || "cliente").toLowerCase().replace(/[^a-z0-9]+/gi, "-")}-${sm.ex}-serie${sm.n}`; }
+
+/* ---------------- history (this device only) ---------------- */
+function saveHistory(sm) {
+  const h = store.get("vlc.history", []);
+  h.unshift({d:sm.date.toISOString(), c:sm.client, ex:sm.name, load:sm.load, reps:sm.reps.length, best:sm.best, unit:sm.unit, loss:Math.round(sm.finalLoss)});
+  store.set("vlc.history", h.slice(0, 60));
+}
+function renderHistory() {
+  const h = store.get("vlc.history", []);
+  $("#histcard").hidden = !h.length;
+  $("#histbody").innerHTML = h.slice(0, 15).map(r => `<tr><td>${new Date(r.d).toLocaleDateString("es-ES", {day:"2-digit", month:"2-digit"})}</td><td>${esc(r.c || "—")}</td><td>${r.ex}</td><td>${r.load ? r.load + " kg" : "—"}</td><td>${r.reps}</td><td>${r.unit === "°/s" ? Math.round(r.best) + " °/s" : fmt(r.best, 2) + " m/s"}</td><td>−${r.loss} %</td></tr>`).join("");
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;"}[c])); }
+
+// keep screen awake during sets
+let wake = null;
+document.addEventListener("visibilitychange", () => { if (document.hidden && st.running) endSet(false); });
+async function keepAwake() { try { wake = await navigator.wakeLock?.request("screen"); } catch {} }
+$("#start").addEventListener("click", keepAwake);
+
+// test hooks
+window.__vlc = {st, get set() { return set; }, EX, buildCard, get last() { return st.session[st.session.length - 1]; }};
+if (qs.get("autostart")) {
+  const ex = qs.get("autostart"); if (EX[ex]) { st.ex = ex; }
+  setTimeout(async () => {
+    if (qs.get("src")) { const b = await (await fetch(qs.get("src"))).blob(); st.file = new File([b], "test.mp4", {type:b.type || "video/mp4"}); startSet(); }
+    else $("#start").click();
+  }, 300);
+}
+</script>
+</body>
+</html>
