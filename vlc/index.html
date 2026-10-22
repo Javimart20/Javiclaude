@@ -42,6 +42,18 @@ h1 em{font-style:normal;color:var(--cyan)}
 .ex .cam{font-size:14px;color:var(--muted)}
 .ex .met{font-size:14px;color:var(--fg);opacity:.85}
 .ex svg{position:absolute;right:14px;top:14px;opacity:.55}
+.ex.wide{grid-column:1/-1;min-height:0;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:6px 14px;padding-right:60px}
+.ex.wide .nm{color:var(--amber)}
+.freeopts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{appearance:none;border:1.5px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 14px;font-weight:600;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+.romt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.romt td,.romt th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;font-size:15px}
+.romt th{color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.romt .bar{height:8px;border-radius:4px;background:var(--cyan);display:block;min-width:2px}
+.romt .bar.r{background:var(--amber)}
+.romt td.warn{color:var(--amber);font-weight:700}
 .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 .field{background:var(--panel-solid);border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
 .field label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
@@ -148,6 +160,31 @@ input[type=range]{accent-color:var(--cyan);height:28px}
         <span class="met">Rango · velocidad · balanceo · codos</span>
         <span class="cam">Cámara de frente o de lado</span>
       </button>
+      <button class="ex wide" data-ex="free" aria-pressed="false">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#ffb020" stroke-width="2.2" stroke-linecap="round"><circle cx="17" cy="6" r="3"/><path d="M17 9v10M17 19l-6 10M17 19l7 8M17 12l-8-4M17 12l8 2"/><path d="M5 30c4-3 8-3 12 0s8 3 12 0" stroke-dasharray="2 3"/></svg>
+        <span class="nm">Libre · cualquier movimiento</span>
+        <span class="met">Detecta solo el movimiento que se repite: cuenta ciclos, ritmo, velocidad pico, rangos de cada articulación y asimetrías</span>
+        <span class="cam">Funcional, kettlebell, wall ball, burpees, saltos, remo… Cuerpo entero en pantalla</span>
+      </button>
+    </div>
+
+    <div class="freeopts card" id="freeopts" hidden>
+      <div class="field" style="background:transparent;border:0;padding:0"><label for="freename">Nombre del ejercicio</label><input id="freename" placeholder="p. ej. Kettlebell swing" maxlength="28" autocomplete="off"></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="eyebrow" id="followlbl">Qué seguir</span>
+        <div class="chips" role="group" aria-labelledby="followlbl" id="follow">
+          <button class="chip" data-f="auto" aria-pressed="true">Automático</button>
+          <button class="chip" data-f="hip" aria-pressed="false">Cadera ↕</button>
+          <button class="chip" data-f="hands" aria-pressed="false">Manos ↕</button>
+          <button class="chip" data-f="shoulders" aria-pressed="false">Hombros ↕</button>
+          <button class="chip" data-f="feet" aria-pressed="false">Pies ↕</button>
+          <button class="chip" data-f="handsX" aria-pressed="false">Manos ↔</button>
+          <button class="chip" data-f="knees" aria-pressed="false">Rodillas (ángulo)</button>
+          <button class="chip" data-f="hipsA" aria-pressed="false">Cadera (ángulo)</button>
+          <button class="chip" data-f="elbows" aria-pressed="false">Codos (ángulo)</button>
+        </div>
+        <span class="note">En automático elige la parte del cuerpo que más se repite. Fíjalo tú si el ejercicio mezcla movimientos.</span>
+      </div>
     </div>
 
     <div class="row">
@@ -219,7 +256,9 @@ input[type=range]{accent-color:var(--cyan);height:28px}
       </div>
     </div>
 
-    <div class="card"><h3>Recorrido durante la serie</h3><div id="curve"></div></div>
+    <div class="card"><h3>Rango de movimiento por articulación</h3><div class="tablewrap" id="romtable"></div></div>
+
+    <div class="card"><h3 id="curveh">Recorrido durante la serie</h3><div id="curve"></div></div>
 
     <div class="card"><h3>Series de hoy</h3><div class="sessions" id="sessions"></div></div>
 
@@ -428,6 +467,56 @@ const EX = {
     }
   }
 };
+/* ---- free mode: candidate signals, the most repetitive one is followed ---- */
+const avgAng = (P, a, b, c, d, e, f) => (angle(P[a], P[b], P[c]) + angle(P[d], P[e], P[f])) / 2;
+const FREE_SIG = {
+  hip:       {label:"Cadera ↕",  u:"m", ids:[L.lh, L.rh], f:(P, k) => -mid(P[L.lh], P[L.rh]).y / k.ppm, pt:P => mid(P[L.lh], P[L.rh]), arc:"k"},
+  hands:     {label:"Manos ↕",   u:"m", ids:[L.lw, L.rw], f:(P, k) => -mid(P[L.lw], P[L.rw]).y / k.ppm, pt:P => mid(P[L.lw], P[L.rw]), arc:"e"},
+  shoulders: {label:"Hombros ↕", u:"m", ids:[L.ls, L.rs], f:(P, k) => -mid(P[L.ls], P[L.rs]).y / k.ppm, pt:P => mid(P[L.ls], P[L.rs]), arc:"h"},
+  feet:      {label:"Pies ↕",    u:"m", ids:[L.la, L.ra], f:(P, k) => -mid(P[L.la], P[L.ra]).y / k.ppm, pt:P => mid(P[L.la], P[L.ra]), arc:"k"},
+  handsX:    {label:"Manos ↔",   u:"m", ids:[L.lw, L.rw], f:(P, k) => mid(P[L.lw], P[L.rw]).x / k.ppm, pt:P => mid(P[L.lw], P[L.rw]), arc:"e"},
+  hipX:      {label:"Cadera ↔",  u:"m", ids:[L.lh, L.rh], f:(P, k) => mid(P[L.lh], P[L.rh]).x / k.ppm, pt:P => mid(P[L.lh], P[L.rh]), arc:"k"},
+  knees:     {label:"Rodillas",  u:"°", ids:[L.lh, L.lk, L.la, L.rh, L.rk, L.ra], f:P => avgAng(P, L.lh, L.lk, L.la, L.rh, L.rk, L.ra), pt:P => mid(P[L.lh], P[L.rh]), arc:"k"},
+  hipsA:     {label:"Cadera (ángulo)", u:"°", ids:[L.ls, L.lh, L.lk, L.rs, L.rh, L.rk], f:P => avgAng(P, L.ls, L.lh, L.lk, L.rs, L.rh, L.rk), pt:P => mid(P[L.ls], P[L.rs]), arc:"h"},
+  elbows:    {label:"Codos",     u:"°", ids:[L.ls, L.le, L.lw, L.rs, L.re, L.rw], f:P => avgAng(P, L.ls, L.le, L.lw, L.rs, L.re, L.rw), pt:P => mid(P[L.lw], P[L.rw]), arc:"e"},
+  shouldersA:{label:"Hombros (ángulo)", u:"°", ids:[L.lh, L.ls, L.le, L.rh, L.rs, L.re], f:P => avgAng(P, L.lh, L.ls, L.le, L.rh, L.rs, L.re), pt:P => mid(P[L.lw], P[L.rw]), arc:"s"}
+};
+const ARC = {k:["h", "k", "a", "Rodilla"], e:["s", "e", "w", "Codo"], h:["s", "h", "k", "Cadera"], s:["h", "s", "e", "Hombro"]};
+EX.free = {
+  name:"Ejercicio libre", free:true, key:"tp", keyLabel:"extremo del movimiento", unit:"m/s", sig:"m", minAmp:0.06, needs:[L.ls, L.rs, L.lh, L.rh],
+  depthLabel:"Recorrido",
+  trail:P => { const kk = set && set.free && set.free.lock; return (kk ? FREE_SIG[kk] : FREE_SIG.hip).pt(P); },
+  hud(P) {
+    const kk = set && set.free && set.free.lock, a = ARC[kk ? FREE_SIG[kk].arc : "k"], sd = side(P);
+    const pts = [S(P, sd, a[0]), S(P, sd, a[1]), S(P, sd, a[2])];
+    return {label:a[3], value:Math.round(angle(...pts)) + "°", arc:pts};
+  },
+  evaluate(rep, F, k) {
+    const flags = [], P = nearest(F, rep.tp).P, view = viewOf(P);
+    const plural = {Rodilla:"rodillas", Cadera:"caderas", Codo:"codos", Hombro:"hombros"};
+    if (view === "frontal" && rep.rom) for (const j of Object.keys(rep.rom)) {
+      const r = rep.rom[j]; if (!r.l || !r.r) continue;
+      const rl = r.l[1] - r.l[0], rr2 = r.r[1] - r.r[0];
+      if (Math.max(rl, rr2) > 25 && Math.abs(rl - rr2) > 18) flags.push(`Asimetría en ${plural[j]}: la ${rl < rr2 ? "izquierda" : "derecha"} recorre menos`);
+    }
+    const cyc = set.reps.map(r => r.cycle).filter(Boolean).concat(rep.cycle ? [rep.cycle] : []);
+    if (cyc.length >= 4 && rep.cycle) { const sorted = [...cyc].sort((a, b) => a - b), med = sorted[Math.floor(sorted.length / 2)]; if (Math.abs(rep.cycle - med) / med > 0.3) flags.push("Ritmo irregular"); }
+    return {flags, view, depthCm:rep.amp * 100};
+  }
+};
+const JOINTS = [["Rodilla", "h", "k", "a"], ["Cadera", "s", "h", "k"], ["Codo", "s", "e", "w"], ["Hombro", "h", "s", "e"]];
+function jointROM(frames) {
+  const out = {};
+  for (const [name, a, b, c] of JOINTS) {
+    out[name] = {};
+    for (const sd of ["l", "r"]) {
+      let lo = 1e9, hi = -1e9, n = 0;
+      for (const f of frames) { const A = f.P[L[sd + a]], B = f.P[L[sd + b]], Cc = f.P[L[sd + c]]; if (A.v < 0.45 || B.v < 0.45 || Cc.v < 0.45) continue; const g = angle(A, B, Cc); lo = Math.min(lo, g); hi = Math.max(hi, g); n++; }
+      out[name][sd] = n >= 4 ? [lo, hi] : null;
+    }
+  }
+  return out;
+}
 function nearest(F, t) { let b = F[0]; for (const f of F) if (Math.abs(f.t - t) < Math.abs(b.t - t)) b = f; return b; }
 
 /* ---------------- app state ---------------- */
@@ -441,13 +530,21 @@ const filters = Array.from({length:33}, () => ({x:new OneEuro(), y:new OneEuro()
 /* ---------------- setup UI ---------------- */
 document.querySelectorAll(".ex").forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll(".ex").forEach(x => x.setAttribute("aria-pressed", "false"));
-  b.setAttribute("aria-pressed", "true"); st.ex = b.dataset.ex; savePrefs();
+  b.setAttribute("aria-pressed", "true"); st.ex = b.dataset.ex; $("#freeopts").hidden = st.ex !== "free"; savePrefs();
+}));
+st.follow = "auto";
+document.querySelectorAll("#follow .chip").forEach(c => c.addEventListener("click", () => {
+  document.querySelectorAll("#follow .chip").forEach(x => x.setAttribute("aria-pressed", "false"));
+  c.setAttribute("aria-pressed", "true"); st.follow = c.dataset.f; savePrefs();
 }));
 $("#vl").addEventListener("input", e => { $("#vlv").textContent = e.target.value; });
-function savePrefs() { store.set("vlc.prefs", {ex:st.ex, client:$("#client").value, height:$("#height").value, vl:$("#vl").value, voice:$("#voice").checked, rear:$("#rear").checked, autoend:$("#autoend").checked}); }
+function savePrefs() { store.set("vlc.prefs", {follow:st.follow, freename:$("#freename").value, ex:st.ex, client:$("#client").value, height:$("#height").value, vl:$("#vl").value, voice:$("#voice").checked, rear:$("#rear").checked, autoend:$("#autoend").checked}); }
 (function loadPrefs() {
   const p = store.get("vlc.prefs", null); if (!p) return;
   if (p.ex) { st.ex = p.ex; document.querySelectorAll(".ex").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.ex === p.ex))); }
+  $("#freeopts").hidden = st.ex !== "free";
+  if (p.follow) { st.follow = p.follow; document.querySelectorAll("#follow .chip").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.f === p.follow))); }
+  if (p.freename) $("#freename").value = p.freename;
   if (p.client) $("#client").value = p.client; if (p.height) $("#height").value = p.height;
   if (p.vl) { $("#vl").value = p.vl; $("#vlv").textContent = p.vl; }
   ["voice", "rear", "autoend"].forEach(k => { if (k in p) $("#" + k).checked = p[k]; });
@@ -514,7 +611,7 @@ async function startSet() {
   st.client = $("#client").value.trim(); st.height = clamp(+$("#height").value || 170, 130, 215);
   st.load = +$("#load").value || null; st.vlTarget = +$("#vl").value; st.voice = $("#voice").checked;
   const rearNow = $("#rear").checked; if (rearNow !== st.rear) { stopCamera(); st.rear = rearNow; }
-  st.autoEnd = $("#autoend").checked; savePrefs();
+  st.autoEnd = $("#autoend").checked; st.freeName = $("#freename").value.trim(); savePrefs();
   try { if (st.voice && "speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch {}
   beep(0, 0.01, 0.0001);
   show("live"); $("#loading").hidden = false; $("#loading").textContent = "Cargando el modelo de detección…";
@@ -534,21 +631,28 @@ async function startSet() {
   set = {
     ex:st.ex, def, n:st.session.filter(s => s.ex === st.ex).length + 1, t0:performance.now() / 1000, tStartCount:null,
     phase:"calibrate", calib:[], ppm:null, reps:[], frames:[], trail:[], curve:[], lastMoveT:0, toast:null, stopAlerted:false,
-    engine:def.arms ? null : new RepEngine(def.minAmp), arms:def.arms ? {l:new RepEngine(def.minAmp), r:new RepEngine(def.minAmp)} : null,
+    engine:(def.arms || def.free) ? null : new RepEngine(def.minAmp), arms:def.arms ? {l:new RepEngine(def.minAmp), r:new RepEngine(def.minAmp)} : null,
+    free:def.free ? {ring:{}, lock:st.follow !== "auto" ? st.follow : null, forced:st.follow !== "auto", engine:null, selT:0, ampT:0} : null,
     pendingArm:null, ring:[], snaps:[], snapT:0, recorder:null, chunks:[], videoBlob:null, mime:"", ended:false, lastP:null, lastSeen:0
   };
   filters.forEach(f => { f.x = new OneEuro(); f.y = new OneEuro(); });
-  startRecorder();
-  st.running = true; requestAnimationFrame(loop);
+  st.running = true; requestAnimationFrame(loop);   // the recorder starts on the first drawn frame, once the stage has its real size
 }
 
+let recCv = null, recCtx = null;
 function startRecorder() {
-  const cv = $("#stage");
-  if (!cv.captureStream || !window.MediaRecorder) return;
+  set.recTried = true;
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return;
+  // fixed-size recording canvas in the same orientation as the screen (720 px on the short side)
+  const land = cv.width >= cv.height, ar = cv.width / cv.height;
+  const rw = land ? Math.round(720 * ar / 2) * 2 : 720, rh = land ? 720 : Math.round(720 / ar / 2) * 2;
+  if (!recCv) { recCv = document.createElement("canvas"); recCv.setAttribute("aria-hidden", "true"); recCv.style.cssText = "position:fixed;left:-99999px;top:0;pointer-events:none"; document.body.appendChild(recCv); }
+  recCv.width = rw; recCv.height = rh; recCtx = recCv.getContext("2d");
+  copyToRec();
   const types = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
   const mime = types.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } }) || "";
   try {
-    const rec = new MediaRecorder(cv.captureStream(30), mime ? {mimeType:mime, videoBitsPerSecond:5e6} : undefined);
+    const rec = new MediaRecorder(recCv.captureStream(30), mime ? {mimeType:mime, videoBitsPerSecond:6e6} : undefined);
     rec.ondataavailable = e => { if (e.data && e.data.size) set.chunks.push(e.data); };
     rec.start(500); set.recorder = rec; set.mime = rec.mimeType || mime || "video/webm";
   } catch {}
@@ -589,7 +693,15 @@ function loop() {
     } else if (now - set.lastSeen > 0.5) set.lastP = null;
   }
   draw(now);
+  if (!set.recTried && v.readyState >= 2 && cv.width > 300) startRecorder();
+  else if (set.recorder) copyToRec();
   requestAnimationFrame(loop);
+}
+function copyToRec() {
+  if (!recCtx) return;
+  const rw = recCv.width, rh = recCv.height, s = Math.min(rw / cv.width, rh / cv.height), w = cv.width * s, h = cv.height * s;
+  if (Math.abs(w - rw) > 2 || Math.abs(h - rh) > 2) { recCtx.fillStyle = "#0a0e13"; recCtx.fillRect(0, 0, rw, rh); }
+  recCtx.drawImage(cv, (rw - w) / 2, (rh - h) / 2, w, h);
 }
 const RING_W = 360;
 function pushRing(t) {
@@ -662,7 +774,9 @@ function process(P, t) {
   set.trail.push({t, x:tr.x, y:tr.y}); while (set.trail.length && t - set.trail[0].t > 2.2) set.trail.shift();
 
   let rep = null;
-  if (def.arms) {
+  if (def.free) {
+    rep = processFree(P, t, k);
+  } else if (def.arms) {
     const sL = def.signalArm(P, "l"), sR = def.signalArm(P, "r");
     set.curve.push({t:t - set.tStartCount, s:Math.max(sL, sR)});
     const rl = (P[L.lw].v > 0.35 && P[L.le].v > 0.35) ? set.arms.l.push(t, sL) : null;
@@ -686,20 +800,77 @@ function process(P, t) {
   }
   // movement watchdog for auto-end
   const recent = set.curve.slice(-8).map(c => c.s);
-  if (recent.length > 4) { const span = Math.max(...recent) - Math.min(...recent); if (span > def.minAmp * 0.12) set.lastMoveT = t; }
+  const ma = def.free ? (set.free.engine ? set.free.engine.minAmp : Infinity) : def.minAmp;
+  if (recent.length > 4) { const span = Math.max(...recent) - Math.min(...recent); if (span > ma * 0.12) set.lastMoveT = t; }
+  if (def.free && !set.free.engine) set.lastMoveT = t;   // don't auto-end before a movement is found
   if (rep) onRep(rep, t);
   if (st.autoEnd && set.reps.length && t - set.lastMoveT > 5 && !set.pendingArm) endSet(false);
 }
 
+const pct = (arr, q) => { const a = [...arr].sort((x, y) => x - y); return a[Math.min(a.length - 1, Math.max(0, Math.floor(q * (a.length - 1))))]; };
+function processFree(P, t, k) {
+  const fr = set.free;
+  for (const [key, g] of Object.entries(FREE_SIG)) {
+    if (!g.ids.every(i => P[i].v >= 0.4)) continue;
+    const r = fr.ring[key] || (fr.ring[key] = []); r.push({t, s:g.f(P, k)}); while (r.length && t - r[0].t > 6) r.shift();
+  }
+  const range = key => { const r = fr.ring[key]; if (!r || r.length < 20) return 0; const v = r.map(p => p.s); return pct(v, 0.92) - pct(v, 0.08); };
+  const norm = key => range(key) / (FREE_SIG[key].u === "m" ? 0.25 : 45);
+  const floor = key => FREE_SIG[key].u === "m" ? 0.06 : 15;
+  const makeEngine = key => {
+    const e = new RepEngine(Math.max(floor(key), 0.45 * range(key)));
+    let out = null; for (const p of fr.ring[key] || []) { const rr = e.push(p.t, p.s); if (rr) out = rr; }  // catch up on the last seconds
+    fr.engine = e; fr.unit = FREE_SIG[key].u; return out;
+  };
+  let rep = null;
+  // choose / lock the followed signal
+  if (!fr.engine && t - fr.selT > 0.5) {
+    fr.selT = t;
+    if (fr.forced && fr.ring[fr.lock] && fr.ring[fr.lock].length >= 20) rep = makeEngine(fr.lock);
+    else if (!fr.forced) {
+      let best = null, bn = 0;
+      for (const key of Object.keys(FREE_SIG)) { const n = norm(key); if (n > bn) { bn = n; best = key; } }
+      if (best && bn >= 1) {
+        const v = fr.ring[best].map(p => p.s), md = pct(v, 0.5); let cross = 0;
+        for (let i = 1; i < v.length; i++) if ((v[i - 1] - md) * (v[i] - md) < 0) cross++;
+        if (cross >= 2) { fr.lock = best; rep = makeEngine(best); set.toast = {text:`Siguiendo: ${FREE_SIG[best].label}`, t, col:C.amber}; }
+      }
+    }
+  }
+  if (!fr.engine) return null;
+  // auto mode: if nothing has been counted and another part clearly moves more, switch
+  if (!fr.forced && !set.reps.length && t - fr.selT > 2) {
+    fr.selT = t; let best = fr.lock, bn = norm(fr.lock);
+    for (const key of Object.keys(FREE_SIG)) { const n = norm(key); if (n > bn * 1.6) { bn = n; best = key; } }
+    if (best !== fr.lock) { fr.lock = best; set.curve = []; rep = makeEngine(best); set.toast = {text:`Siguiendo: ${FREE_SIG[best].label}`, t, col:C.amber}; }
+  }
+  if (t - fr.ampT > 1) { fr.ampT = t; const a = Math.max(floor(fr.lock), 0.45 * range(fr.lock)); if (Math.abs(a - fr.engine.minAmp) / fr.engine.minAmp > 0.15) { fr.engine.minAmp = a; fr.engine.h = a * 0.3; } }
+  const s = FREE_SIG[fr.lock].f(P, k);
+  set.curve.push({t:t - set.tStartCount, s});
+  return fr.engine.push(t, s) || rep;
+}
+
 function onRep(rep, t) {
   const def = set.def;
+  // per-rep window: from the previous rep's end (or the valley minus the rise) to this rep's end
+  const prev = set.reps[set.reps.length - 1];
+  const w0 = prev ? prev.tp : rep.tv - (rep.tp - rep.tv), win = set.frames.filter(f => f.t >= w0 && f.t <= rep.tp + 0.05);
+  rep.rom = jointROM(win);
+  rep.cycle = prev ? rep.tp - prev.tp : null;
+  if (def.free) {
+    const g = FREE_SIG[set.free.lock]; let peak = 0;
+    for (let i = 2; i < win.length; i++) { const a = g.pt(win[i - 2].P), b = g.pt(win[i].P), dt = win[i].t - win[i - 2].t; if (dt > 0) peak = Math.max(peak, dist(a, b) / dt / set.ppm); }
+    rep.meanV = peak; rep.sigU = g.u;
+  }
   const ev = def.evaluate(rep, set.frames, {ppm:set.ppm});
   rep.flags = ev.flags; rep.ev = ev; rep.n = set.reps.length + 1;
   set.reps.push(rep);
   const best = Math.max(...set.reps.map(r => r.meanV));
   rep.loss = Math.max(0, (best - rep.meanV) / best * 100);
   // snapshot of the stage at the end of the concentric (overlay included)
-  rep.snap = snapAt(rep[def.key] ?? rep.tp);
+  let keyT = rep[def.key] ?? rep.tp;
+  if (def.free && set.curve.length) { const rest = set.curve[0].s; keyT = Math.abs(rep.sMax - rest) >= Math.abs(rep.sMin - rest) ? rep.tp : rep.tv; }  // the extreme far from the resting position
+  rep.snap = snapAt(keyT);
   if (rep.flags.length) set.toast = {text:`Rep ${rep.n} · ${rep.flags[0]}`, t, col:C.amber};
   if (rep.loss >= st.vlTarget && set.reps.length > 1) {
     beep(440, 0.25, 0.3); setTimeout(() => beep(440, 0.25, 0.3), 280);
@@ -804,8 +975,13 @@ function drawHUD(now) {
   ctx.font = `700 ${U(15)}px ${FB}`; const bw = ctx.measureText("FITNESS VLC").width + U(26);
   rr(m, m, bw, U(32), U(16)); ctx.fillStyle = C.brand; ctx.fill();
   txt("FITNESS VLC", m + bw / 2, m + U(16.5), `700 ${U(15)}px ${FB}`, "#fff", "center", "middle");
-  txt(def.name, m, m + U(76), `700 ${U(46)}px ${FD}`, "#fff");
-  const sub = [st.client || "Cliente", `Serie ${set.n}`, st.load ? `${fmt(st.load, st.load % 1 ? 1 : 0)} kg` : null].filter(Boolean).join(" · ");
+  txt(def.free ? (st.freeName || def.name) : def.name, m, m + U(76), `700 ${U(46)}px ${FD}`, "#fff");
+  let sub = [st.client || "Cliente", `Serie ${set.n}`, st.load ? `${fmt(st.load, st.load % 1 ? 1 : 0)} kg` : null].filter(Boolean).join(" · ");
+  if (def.free) {
+    const fr = set.free, cyc = set.reps.map(r => r.cycle).filter(Boolean).slice(-4);
+    const cad = cyc.length ? ` · ${Math.round(60 / (cyc.reduce((a, b) => a + b, 0) / cyc.length))} rep/min` : "";
+    sub += fr.lock && fr.engine ? ` · siguiendo ${FREE_SIG[fr.lock].label}${cad}` : " · buscando el movimiento…";
+  }
   txt(sub, m, m + U(104), `600 ${U(19)}px ${FB}`, "rgba(238,242,246,.85)");
 
   // status chip (top right)
@@ -836,7 +1012,7 @@ function drawHUD(now) {
   const pw = Math.min(U(380), W * 0.56), ph = U(176), px = m, py = bottom - ph + U(26);
   panel(px, py, pw, ph);
   const last = set.reps[reps - 1];
-  txt(def.unit === "°/s" ? "VELOCIDAD DE SUBIDA" : "VELOCIDAD MEDIA DE SUBIDA", px + U(16), py + U(26), `700 ${U(13)}px ${FB}`, C.muted);
+  txt(def.free ? "VELOCIDAD PICO" : def.unit === "°/s" ? "VELOCIDAD DE SUBIDA" : "VELOCIDAD MEDIA DE SUBIDA", px + U(16), py + U(26), `700 ${U(13)}px ${FB}`, C.muted);
   const vtxt = last ? (def.unit === "°/s" ? `${Math.round(last.meanV)}` : fmt(last.meanV, 2)) : "—";
   txt(vtxt, px + U(16), py + U(76), `700 ${U(50)}px ${FD}`, "#fff");
   ctx.font = `700 ${U(50)}px ${FD}`; const vw2 = ctx.measureText(vtxt).width;
@@ -886,13 +1062,15 @@ function buildSummary(s) {
   const tut = reps.reduce((a, r) => a + r.conc, 0);
   const flagCount = {}; reps.forEach(r => r.flags.forEach(f => { (flagCount[f] = flagCount[f] || []).push(r.n); }));
   return {
-    id:Date.now(), date:new Date(), ex:s.ex, name:def.name, unit:def.unit, sig:def.sig, client:st.client, load:st.load, n:s.n, vlTarget:st.vlTarget,
+    id:Date.now(), date:new Date(), ex:s.ex, name:def.free ? (st.freeName || def.name) : def.name, unit:def.unit, sig:def.free ? FREE_SIG[s.free.lock].u : def.sig, client:st.client, load:st.load, n:s.n, vlTarget:st.vlTarget,
     reps, best, bestI, worst, worstI, lastLoss, maxLoss, finalLoss, ampMean, ampCV, deepI, tut, flagCount,
-    curve:s.curve, video:s.videoBlob, mime:s.mime, view:reps[0].ev.view, t0:s.tStartCount, approxCal:!!s.approxCal
+    curve:s.curve, video:s.videoBlob, mime:s.mime, view:reps[0].ev.view, t0:s.tStartCount, approxCal:!!s.approxCal,
+    free:!!def.free, follow:def.free ? FREE_SIG[s.free.lock].label : null, cycleMed:(() => { const c = reps.map(r => r.cycle).filter(Boolean); return c.length ? pct(c, 0.5) : null; })(),
+    cycleCV:(() => { const c = reps.map(r => r.cycle).filter(Boolean); if (c.length < 2) return null; const m = c.reduce((a, b) => a + b, 0) / c.length; return Math.sqrt(c.reduce((a, b) => a + (b - m) ** 2, 0) / c.length) / m * 100; })()
   };
 }
 
-function vfmt(sm, v) { return sm.unit === "°/s" ? `${Math.round(v)} °/s` : `${fmt(v, 2)} m/s`; }
+function vfmt(sm, v) { return (sm.unit === "°/s" && !sm.free) ? `${Math.round(v)} °/s` : `${fmt(v, 2)} m/s`; }
 function afmt(sm, a) { return sm.sig === "°" ? `${Math.round(a)}°` : `${Math.round(a * 100)} cm`; }
 
 function verdictOf(sm) {
@@ -902,6 +1080,7 @@ function verdictOf(sm) {
   else if (L1 < tgt) { col = C.cyan; txt1 = `Pérdida de velocidad del ${L1} %, por debajo del objetivo (${tgt} %).`; txt2 = "Zona de trabajo buena; si quieres más estímulo, alarga la serie hasta el corte."; }
   else if (L1 < tgt + 10) { col = C.amber; txt1 = `Llegó al corte: perdió un ${L1} % de velocidad.`; txt2 = "Serie cerca del fallo. Mantén la carga en la siguiente."; }
   else { col = C.red; txt1 = `Pérdida del ${L1} %, muy por encima del objetivo (${tgt} %).`; txt2 = "Fatiga alta: corta antes o baja un poco la carga en la siguiente serie."; }
+  if (sm.free && sm.cycleMed) txt2 += ` Ritmo: 1 rep cada ${fmt(sm.cycleMed, 1)} s (${Math.round(60 / sm.cycleMed)}/min)${sm.cycleCV != null ? `, regularidad ±${Math.round(sm.cycleCV)} %` : ""}.`;
   const topFlag = Object.entries(sm.flagCount).sort((a, b) => b[1].length - a[1].length)[0];
   const t3 = topFlag ? ` Técnica: «${topFlag[0]}» en ${topFlag[1].length} de ${sm.reps.length} reps.` : " Técnica sin avisos en esta serie.";
   return {col, html:`<b>${txt1}</b> ${txt2}${t3}`};
@@ -928,7 +1107,12 @@ function renderSummary(sm) {
     cropURL(r.snap, 3 / 4, 300).then(u => { d.querySelector("img").src = u; }); k.appendChild(d);
   }
 
-  const tiles = [
+  const tiles = sm.free ? [
+    ["Repeticiones", String(sm.reps.length), `siguiendo ${sm.follow}`],
+    ["Ritmo", sm.cycleMed ? `${Math.round(60 / sm.cycleMed)}/min` : "—", sm.cycleMed ? `1 rep cada ${fmt(sm.cycleMed, 1)} s · ±${Math.round(sm.cycleCV || 0)} %` : "hacen falta 2 reps"],
+    ["Velocidad pico", `${fmt(sm.best, 2)} m/s`, `rep ${sm.reps[sm.bestI].n} · ${sm.follow}`],
+    ["Pérdida de velocidad", `${Math.round(sm.finalLoss)} %`, `últimas reps vs mejor · corte ${sm.vlTarget} %`]
+  ] : [
     ["Repeticiones", String(sm.reps.length), `${fmt(sm.tut, 1)} s de subida en total`],
     ["Mejor velocidad", vfmt(sm, sm.best), `rep ${sm.reps[sm.bestI].n}`],
     ["Pérdida de velocidad", `${Math.round(sm.finalLoss)} %`, `últimas reps vs mejor · máx ${Math.round(sm.maxLoss)} % · corte ${sm.vlTarget} %`],
@@ -936,7 +1120,9 @@ function renderSummary(sm) {
   ];
   $("#tiles").innerHTML = tiles.map(([l, v, s]) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
 
-  $("#velh").textContent = `Velocidad de cada repetición (${sm.unit})`;
+  $("#velh").textContent = sm.free ? `Velocidad pico de cada repetición (m/s · ${sm.follow})` : `Velocidad de cada repetición (${sm.unit})`;
+  $("#romtable").innerHTML = romTable(sm);
+  $("#curveh").textContent = sm.free ? `Recorrido durante la serie · ${sm.follow}` : "Recorrido durante la serie";
   $("#velchart").innerHTML = velSVG(sm);
   $("#curve").innerHTML = curveSVG(sm);
 
@@ -952,6 +1138,20 @@ function renderSummary(sm) {
   $("#sharevid").hidden = !sm.video;
 }
 
+function romTable(sm) {
+  const avg = (name, sd) => { const v = sm.reps.map(r => r.rom && r.rom[name] && r.rom[name][sd]).filter(Boolean); if (!v.length) return null; return {lo:v.reduce((a, b) => a + b[0], 0) / v.length, hi:v.reduce((a, b) => a + b[1], 0) / v.length}; };
+  let rows = "", maxR = 1;
+  const data = JOINTS.map(([n]) => [n, avg(n, "l"), avg(n, "r")]);
+  data.forEach(([, l, r]) => { if (l) maxR = Math.max(maxR, l.hi - l.lo); if (r) maxR = Math.max(maxR, r.hi - r.lo); });
+  for (const [n, l, r] of data) {
+    if (!l && !r) continue;
+    const rl = l ? l.hi - l.lo : null, rr2 = r ? r.hi - r.lo : null;
+    const asym = rl != null && rr2 != null && Math.max(rl, rr2) > 25 && Math.abs(rl - rr2) > 18 && sm.view === "frontal";
+    const cell = (x, cls) => x ? `<td>${Math.round(x.hi - x.lo)}° <span class="note">(${Math.round(x.lo)}–${Math.round(x.hi)}°)</span><span class="bar ${cls}" style="width:${Math.round((x.hi - x.lo) / maxR * 100)}%"></span></td>` : `<td class="note">no se ve</td>`;
+    rows += `<tr><td><b>${n}</b></td>${cell(l, "")}${cell(r, "r")}<td class="${asym ? "warn" : "note"}">${rl != null && rr2 != null ? (asym ? "⚠ " : "") + Math.round(Math.abs(rl - rr2)) + "°" : "—"}</td></tr>`;
+  }
+  return `<table class="romt"><thead><tr><th>Articulación</th><th>Izquierda</th><th>Derecha</th><th>Diferencia</th></tr></thead><tbody>${rows}</tbody></table><p class="note" style="margin:8px 0 0">Media por repetición. Ángulo interior (180° = estirado). ${sm.view === "frontal" ? "Con cámara de frente la diferencia izquierda/derecha es fiable para comparar." : "Con cámara de lado el lado lejano se estima peor; no lo uses para comparar lados."}</p>`;
+}
 function velSVG(sm) {
   const W = 560, H = 210, pl = 44, pr = 12, pt = 16, pb = 30, n = sm.reps.length;
   const max = Math.max(...sm.reps.map(r => r.meanV)) * 1.12, bw = (W - pl - pr) / n;
@@ -980,9 +1180,9 @@ function curveSVG(sm) {
   for (let i = 0; i < c.length; i += step) d += (i ? "L" : "M") + x(c[i].t).toFixed(1) + " " + y(c[i].s).toFixed(1);
   let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Recorrido a lo largo de la serie">`;
   for (let tt = 0; tt <= t1; tt += 5) s += `<line x1="${x(tt)}" x2="${x(tt)}" y1="${pt}" y2="${H - pb}" stroke="rgba(255,255,255,.07)"/><text x="${x(tt)}" y="${H - 8}" fill="${C.muted}" font-size="12" text-anchor="middle" font-family="Barlow">${tt} s</text>`;
-  s += `<path d="${d} L${x(t1)} ${H - pb} L${pl} ${H - pb}Z" fill="rgba(61,214,245,.12)"/><path d="${d}" fill="none" stroke="${C.cyan}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  s += `<path d="${d} L${x(t1)} ${H - pb} L${x(c[0].t)} ${H - pb}Z" fill="rgba(61,214,245,.12)"/><path d="${d}" fill="none" stroke="${C.cyan}" stroke-width="2.5" stroke-linejoin="round"/>`;
   sm.reps.forEach(r => { const tt = r.tp - sm.t0; if (tt < 0 || tt > t1) return; s += `<circle cx="${x(tt)}" cy="${y(r.sMax)}" r="5" fill="${r.flags.length ? C.amber : "#fff"}"/><text x="${x(tt)}" y="${y(r.sMax) - 10}" fill="#fff" font-size="12" text-anchor="middle" font-family="Barlow" font-weight="700">${r.n}</text>`; });
-  s += `<text x="${pl - 8}" y="${pt + 10}" fill="${C.muted}" font-size="12" text-anchor="end" font-family="Barlow">${sm.sig === "°" ? "flexión" : "altura"}</text>`;
+  s += `<text x="${pl - 8}" y="${pt + 10}" fill="${C.muted}" font-size="12" text-anchor="end" font-family="Barlow">${sm.sig === "°" ? (sm.free ? "ángulo" : "flexión") : (sm.free ? "posición" : "altura")}</text>`;
   return s + "</svg>";
 }
 
@@ -1001,7 +1201,9 @@ async function buildCard(sm) {
   t(sm.date.toLocaleDateString("es-ES", {day:"numeric", month:"long"}), W - M, 141, `600 22px ${FB}`, C.muted, "right");
   t(sm.name, M, 1000, `700 92px ${FD}`, "#fff");
   t([sm.client || "Cliente", `Serie ${sm.n}`, sm.load ? `${sm.load} kg` : null].filter(Boolean).join(" · "), M, 1048, `600 30px ${FB}`, "rgba(238,242,246,.85)");
-  const tiles = [["REPS", String(sm.reps.length)], ["MEJOR VELOCIDAD", vfmt(sm, sm.best)], ["PÉRDIDA", `${Math.round(sm.finalLoss)} %`], [EX[sm.ex].depthLabel.toUpperCase(), afmt(sm, sm.ampMean)]];
+  const tiles = sm.free
+    ? [["REPS", String(sm.reps.length)], ["RITMO", sm.cycleMed ? `${Math.round(60 / sm.cycleMed)}/min` : "—"], ["VELOCIDAD PICO", `${fmt(sm.best, 2)} m/s`], ["PÉRDIDA", `${Math.round(sm.finalLoss)} %`]]
+    : [["REPS", String(sm.reps.length)], ["MEJOR VELOCIDAD", vfmt(sm, sm.best)], ["PÉRDIDA", `${Math.round(sm.finalLoss)} %`], [EX[sm.ex].depthLabel.toUpperCase(), afmt(sm, sm.ampMean)]];
   tiles.forEach(([l, v], i) => { const x = M + (i % 2) * 435, y = 1090 + Math.floor(i / 2) * 150; R(x, y, 425, 136, 20); g.fillStyle = "#121820"; g.fill(); g.strokeStyle = "rgba(255,255,255,.12)"; g.stroke(); t(l, x + 22, y + 38, `600 20px ${FB}`, C.muted); t(v, x + 22, y + 108, `700 62px ${FD}`, "#fff"); });
   // bars
   const bx = M, by = 1585, bw = 860, bh = 135, n = sm.reps.length, max = sm.best * 1.05, gw = bw / n;
