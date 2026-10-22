@@ -211,7 +211,7 @@ input[type=range]{accent-color:var(--cyan);height:28px}
       <h3>Historial en este iPad</h3>
       <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Ejercicio</th><th>Carga</th><th>Reps</th><th>Mejor vel.</th><th>Pérdida</th></tr></thead><tbody id="histbody"></tbody></table></div>
     </div>
-    <p class="note">Versión 8 · 22 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
+    <p class="note">Versión 9 · 22 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
   </div>
 </section>
 
@@ -765,7 +765,7 @@ function loopBody() {
   if (!set.recTried && v.readyState >= 2 && cv.width > 300 && set.det > 3) startRecorder();
   set.fpsN = (set.fpsN || 0) + 1; const pn = performance.now(); if (!set.fpsT) set.fpsT = pn; if (pn - set.fpsT > 1000) { set.fps = Math.round(set.fpsN * 1000 / (pn - set.fpsT)); set.fpsN = 0; set.fpsT = pn; }
   if (set.lastErr) txt("Error: " + set.lastErr.slice(0, 80), U(22), view.H - U(40), `600 ${U(13)}px ${FB}`, C.red);
-  else txt(`v8 · ${set.fps || "–"} fps · ${set.recorder ? "grabando" : "sin grabar"}`, U(22), view.H - U(40), `500 ${U(11)}px ${FB}`, "rgba(255,255,255,.45)");
+  else txt(`v9 · ${set.fps || "–"} fps · ${set.recorder ? "grabando" : "sin grabar"}`, U(22), view.H - U(40), `500 ${U(11)}px ${FB}`, "rgba(255,255,255,.45)");
 }
 function copyToRec() {
   if (!recCtx) return;
@@ -991,8 +991,8 @@ function draw(now) {
   const P = set && set.lastP;
   if (P) drawBody(P, now);
   if (set && set.phase === "count" && now - (set.ringT || 0) > 0.08) { set.ringT = now; pushRing(now); }  // key frames without HUD
-  if (set && set.recorder) copyToRec();   // the replay is recorded clean (video + skeleton), the reel adds its own graphics
   drawHUD(now);
+  if (set && set.recorder) copyToRec();   // the replay keeps all the on-screen graphics
 }
 
 function drawBody(P, now) {
@@ -1466,9 +1466,11 @@ async function makeReel(sm) {
   // ===== 2 · THE SET (real speed or a bit faster) =====
   let shown = 0, popT = -9;
   const pops = [];
-  aimCam(a0, 1, true);
+  const fullCam = () => { cam.cx = VW / 2; cam.cy = VH / 2; cam.h = Math.max(VH, VW * 16 / 9); };
+  fullCam();
   await play(a0, a1, prSet, v => {
-    aimCam(v, 1, false); drawSrc(0);
+    fullCam(); drawSrc(0);
+    if (true) { while (shown < reps.length && v >= repT[shown]) { shown++; SFX.pop(); } return; }   // the replay already carries counter, speed and bars
     while (shown < reps.length && v >= repT[shown]) { pops.push({n:shown, t:performance.now()}); shown++; popT = performance.now(); SFX.pop(); SFX.tick(); }
     brand(1, serieTxt);
     T(exName, SAFE.x0, SAFE.top + 120, fitFont(exName, 620, 64), "#fff");
