@@ -166,6 +166,12 @@ input[type=range]{accent-color:var(--cyan);height:28px}
         <span class="met">Rango · velocidad · balanceo · codos</span>
         <span class="cam">Cámara de frente o de lado</span>
       </button>
+      <button class="ex" data-ex="golf" aria-pressed="false">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#58e68c" stroke-width="2.2" stroke-linecap="round"><circle cx="13" cy="6" r="3"/><path d="M13 9l2 9-3 6-1 8M15 18l4 6 1 8M14 12l9-6M23 6l6 22"/><circle cx="29" cy="30" r="1.6" fill="#58e68c"/></svg>
+        <span class="nm" style="color:var(--green)">Golf · swing</span>
+        <span class="met">Tempo subida/bajada · cabeza · sway de cadera · giro · brazo adelantado</span>
+        <span class="cam">De frente al golfista o desde atrás en la línea de tiro, cuerpo y palo enteros</span>
+      </button>
       <button class="ex wide" data-ex="free" aria-pressed="false">
         <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#ffb020" stroke-width="2.2" stroke-linecap="round"><circle cx="17" cy="6" r="3"/><path d="M17 9v10M17 19l-6 10M17 19l7 8M17 12l-8-4M17 12l8 2"/><path d="M5 30c4-3 8-3 12 0s8 3 12 0" stroke-dasharray="2 3"/></svg>
         <span class="nm">Libre · cualquier movimiento</span>
@@ -174,6 +180,20 @@ input[type=range]{accent-color:var(--cyan);height:28px}
       </button>
     </div>
 
+    <div class="freeopts card" id="golfopts" hidden>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="eyebrow" id="handlbl">Golfista</span>
+        <div class="chips" role="group" aria-labelledby="handlbl" id="hand">
+          <button class="chip" data-h="R" aria-pressed="true">Diestro</button>
+          <button class="chip" data-h="L" aria-pressed="false">Zurdo</button>
+        </div>
+      </div>
+      <div class="field" style="background:transparent;border:0;padding:0"><label for="slowf">Si analizas un vídeo grabado</label>
+        <select id="slowf"><option value="1">Velocidad normal</option><option value="4">Cámara lenta iPhone 120 fps (×4)</option><option value="8">Cámara lenta iPhone 240 fps (×8)</option></select>
+        <span class="hint">El tempo (proporción subida:bajada) sale bien siempre; los segundos necesitan el factor de cámara lenta.</span>
+      </div>
+      <p class="note" style="grid-column:1/-1;margin:0">Colócate en posición de address y quédate quieto hasta oír «Listo». Haz el swing completo y aguanta el final: la app se para sola y te enseña el análisis. Mejor con la cámara trasera, a la altura de las manos y a 3–4 m.</p>
+    </div>
     <div class="freeopts card" id="freeopts" hidden>
       <div class="field" style="background:transparent;border:0;padding:0"><label for="freename">Nombre del ejercicio</label><input id="freename" placeholder="p. ej. Kettlebell swing" maxlength="28" autocomplete="off"></div>
       <div style="display:flex;flex-direction:column;gap:8px">
@@ -217,7 +237,7 @@ input[type=range]{accent-color:var(--cyan);height:28px}
       <h3>Historial en este iPad</h3>
       <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Ejercicio</th><th>Carga</th><th>Reps</th><th>Mejor vel.</th><th>Pérdida</th></tr></thead><tbody id="histbody"></tbody></table></div>
     </div>
-    <p class="note">Versión 10 · 22 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
+    <p class="note">Versión 11 · 26 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
   </div>
 </section>
 
@@ -581,6 +601,10 @@ function jointROM(frames) {
   }
   return out;
 }
+EX.golf = {
+  name:"Golf · swing", golf:true, key:"keyT", keyLabel:"arriba", unit:"", sig:"m", minAmp:0.3, needs:[L.ls, L.rs, L.lh, L.rh],
+  depthLabel:"", trail:P => mid(P[L.lw], P[L.rw]), hud:() => null, evaluate:() => ({flags:[]})
+};
 function nearest(F, t) { let b = F[0]; for (const f of F) if (Math.abs(f.t - t) < Math.abs(b.t - t)) b = f; return b; }
 
 /* ---------------- app state ---------------- */
@@ -594,19 +618,25 @@ const filters = Array.from({length:33}, () => ({x:new OneEuro(), y:new OneEuro()
 /* ---------------- setup UI ---------------- */
 document.querySelectorAll(".ex").forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll(".ex").forEach(x => x.setAttribute("aria-pressed", "false"));
-  b.setAttribute("aria-pressed", "true"); st.ex = b.dataset.ex; $("#freeopts").hidden = st.ex !== "free"; savePrefs();
+  b.setAttribute("aria-pressed", "true"); st.ex = b.dataset.ex; $("#freeopts").hidden = st.ex !== "free"; $("#golfopts").hidden = st.ex !== "golf"; savePrefs();
 }));
-st.follow = "auto";
+st.follow = "auto"; st.hand = "R";
+document.querySelectorAll("#hand .chip").forEach(c => c.addEventListener("click", () => {
+  document.querySelectorAll("#hand .chip").forEach(x => x.setAttribute("aria-pressed", "false"));
+  c.setAttribute("aria-pressed", "true"); st.hand = c.dataset.h; savePrefs();
+}));
 document.querySelectorAll("#follow .chip").forEach(c => c.addEventListener("click", () => {
   document.querySelectorAll("#follow .chip").forEach(x => x.setAttribute("aria-pressed", "false"));
   c.setAttribute("aria-pressed", "true"); st.follow = c.dataset.f; savePrefs();
 }));
 $("#vl").addEventListener("input", e => { $("#vlv").textContent = e.target.value; });
-function savePrefs() { store.set("vlc.prefs", {follow:st.follow, freename:$("#freename").value, ex:st.ex, client:$("#client").value, height:$("#height").value, vl:$("#vl").value, voice:$("#voice").checked, rear:$("#rear").checked, autoend:$("#autoend").checked}); }
+function savePrefs() { store.set("vlc.prefs", {hand:st.hand, slowf:$("#slowf").value, follow:st.follow, freename:$("#freename").value, ex:st.ex, client:$("#client").value, height:$("#height").value, vl:$("#vl").value, voice:$("#voice").checked, rear:$("#rear").checked, autoend:$("#autoend").checked}); }
 (function loadPrefs() {
   const p = store.get("vlc.prefs", null); if (!p) return;
   if (p.ex) { st.ex = p.ex; document.querySelectorAll(".ex").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.ex === p.ex))); }
-  $("#freeopts").hidden = st.ex !== "free";
+  $("#freeopts").hidden = st.ex !== "free"; $("#golfopts").hidden = st.ex !== "golf";
+  if (p.hand) { st.hand = p.hand; document.querySelectorAll("#hand .chip").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.h === p.hand))); }
+  if (p.slowf) $("#slowf").value = p.slowf;
   if (p.follow) { st.follow = p.follow; document.querySelectorAll("#follow .chip").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.f === p.follow))); }
   if (p.freename) $("#freename").value = p.freename;
   if (p.client) $("#client").value = p.client; if (p.height) $("#height").value = p.height;
@@ -711,6 +741,7 @@ async function startSet() {
   st.client = $("#client").value.trim(); st.height = clamp(+$("#height").value || 170, 130, 215);
   st.load = +$("#load").value || null; st.vlTarget = +$("#vl").value; st.voice = $("#voice").checked;
   const rearNow = $("#rear").checked; if (rearNow !== st.rear) { stopCamera(); st.rear = rearNow; }
+  st.slowF = +$("#slowf").value || 1;
   st.autoEnd = $("#autoend").checked; st.freeName = $("#freename").value.trim(); savePrefs();
   try { if (st.voice && "speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch {}
   beep(0, 0.01, 0.0001);
@@ -732,6 +763,7 @@ async function startSet() {
     ex:st.ex, def, n:st.session.filter(s => s.ex === st.ex).length + 1, t0:performance.now() / 1000, tStartCount:null,
     phase:"calibrate", calib:[], ppm:null, reps:[], frames:[], trail:[], curve:[], lastMoveT:0, toast:null, stopAlerted:false,
     engine:(def.arms || def.free) ? null : new RepEngine(def.minAmp), arms:def.arms ? {l:new RepEngine(def.minAmp), r:new RepEngine(def.minAmp)} : null,
+    golf:def.golf ? {state:"address", hist:[], curve:[], addr:null, ready:false, label:"ADDRESS · QUIETO", col:C.amber} : null,
     free:def.free ? {ring:{}, lock:st.follow !== "auto" ? st.follow : null, forced:st.follow !== "auto", engine:null, selT:0, ampT:0} : null,
     pendingArm:null, ring:[], boxHist:[], snaps:[], snapT:0, recorder:null, chunks:[], videoBlob:null, mime:"", ended:false, lastP:null, lastSeen:0
   };
@@ -767,7 +799,7 @@ async function endSet(cancel) {
   if (rec && rec.state !== "inactive") { await new Promise(r => { rec.onstop = r; rec.stop(); }); }
   if (set.chunks.length) set.videoBlob = new Blob(set.chunks, {type:set.mime.split(";")[0]});
   const vv = $("#video"); if (st.file) { vv.pause(); vv.onended = null; }
-  if (cancel || !set.reps.length) { show("setup"); if (!cancel) $("#setupmsg").textContent = "No se contó ninguna repetición. Comprueba que se vea el cuerpo entero y prueba otra vez."; return; }
+  if (cancel || !set.reps.length) { show("setup"); if (!cancel) $("#setupmsg").textContent = set.def.golf ? "No se detectó un swing completo. Quédate quieto en address hasta oír «Listo» y aguanta el final del swing." : "No se contó ninguna repetición. Comprueba que se vea el cuerpo entero y prueba otra vez."; return; }
   const summary = buildSummary(set);
   st.session.push(summary);
   saveHistory(summary);
@@ -803,7 +835,7 @@ function loopBody() {
   if (!set.recTried && v.readyState >= 2 && cv.width > 300 && set.det > 3) startRecorder();
   set.fpsN = (set.fpsN || 0) + 1; const pn = performance.now(); if (!set.fpsT) set.fpsT = pn; if (pn - set.fpsT > 1000) { set.fps = Math.round(set.fpsN * 1000 / (pn - set.fpsT)); set.fpsN = 0; set.fpsT = pn; }
   if (set.lastErr) txt("Error: " + set.lastErr.slice(0, 80), U(22), view.H - U(40), `600 ${U(13)}px ${FB}`, C.red);
-  else txt(`v10 · ${set.fps || "–"} fps · ${set.recorder ? "grabando" : "sin grabar"}`, U(22), view.H - U(40), `500 ${U(11)}px ${FB}`, "rgba(255,255,255,.45)");
+  else txt(`v11 · ${set.fps || "–"} fps · ${set.recorder ? "grabando" : "sin grabar"}`, U(22), view.H - U(40), `500 ${U(11)}px ${FB}`, "rgba(255,255,255,.45)");
 }
 function copyToRec() {
   if (!recCtx) return;
@@ -860,7 +892,7 @@ function process(P, t) {
       const arr = set.calib.map(c => c.hpx), mean = arr.reduce((a, b) => a + b, 0) / arr.length;
       const still = arr.length > 15 && Math.max(...arr) - Math.min(...arr) < mean * 0.03 && (t - set.calib[0].t) > 0.9;
       if (still) {
-        set.ppm = mean / (0.87 * st.height / 100);
+        set.ppm = def.golf ? golfPPM(P) : mean / (0.87 * st.height / 100);
         set.phase = "count"; set.tStartCount = t; set.lastMoveT = t; beep(1320, 0.12); say("Vamos");
       }
     } else set.calib = [];
@@ -880,7 +912,9 @@ function process(P, t) {
   // store frame for technique evaluation (last 12 s)
   set.frames.push({t, P}); while (set.frames.length && t - set.frames[0].t > 12) set.frames.shift();
   const tr = def.trail ? def.trail(P) : mid(P[L.lw], P[L.rw]);
-  set.trail.push({t, x:tr.x, y:tr.y}); while (set.trail.length && t - set.trail[0].t > 2.2) set.trail.shift();
+  const TW = def.golf ? 3.5 * (st.file ? st.slowF || 1 : 1) : 2.2;
+  set.trail.push({t, x:tr.x, y:tr.y, ph:set.golf ? set.golf.state : null}); while (set.trail.length && t - set.trail[0].t > TW) set.trail.shift();
+  if (def.golf) { processGolf(P, t, k); return; }
 
   let rep = null;
   if (def.free) {
@@ -1068,7 +1102,8 @@ function drawBody(P, now) {
   if (set.trail.length > 2 && def.trail) {
     for (let i = 1; i < set.trail.length; i++) {
       const a = set.trail[i - 1], b = set.trail[i], age = now - b.t;
-      ctx.strokeStyle = `rgba(61,214,245,${clamp(1 - age / 2.2, 0, 1) * 0.95})`; ctx.lineWidth = U(4);
+      const TW = def.golf ? 3.5 * (st.file ? st.slowF || 1 : 1) : 2.2, al = clamp(1 - age / TW, 0, 1) * 0.95;
+      ctx.strokeStyle = b.ph === "back" ? `rgba(255,176,32,${al})` : `rgba(61,214,245,${al})`; ctx.lineWidth = U(def.golf ? 5 : 4);
       ctx.beginPath(); ctx.moveTo(X(a), Y(a)); ctx.lineTo(X(b), Y(b)); ctx.stroke();
     }
     const last = set.trail[set.trail.length - 1];
@@ -1112,6 +1147,7 @@ function drawHUD(now) {
   if (set.phase === "calibrate") { chip = set.lastP ? "QUIETO 1 SEGUNDO · CALIBRANDO" : "COLÓCATE: CUERPO ENTERO"; col = C.amber; }
   else { const s = Math.floor(now - set.tStartCount); chip = `CONTANDO  ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; col = C.green; }
   if (st.file && set.phase !== "calibrate") { chip = "ANALIZANDO VÍDEO  " + chip.replace("CONTANDO  ", ""); }
+  if (def.golf && set.phase !== "calibrate") { chip = set.golf.label; col = set.golf.col; }
   if (set.lastP && set.phase !== "calibrate" && !visibleAll(set.lastP, def.needs, 0.35)) { chip = "NO SE VE BIEN · ACÉRCATE O ALÉJATE"; col = C.amber; }
   ctx.font = `700 ${U(15)}px ${FB}`; const cw = ctx.measureText(chip).width + U(44);
   rr(W - m - cw, m, cw, U(34), U(17)); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = U(2); ctx.stroke();
@@ -1122,9 +1158,10 @@ function drawHUD(now) {
   if (set.phase === "calibrate") {
     ctx.setLineDash([U(14), U(10)]); ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = U(2.5);
     const fw = Math.min(W * 0.5, H * 0.36), fh = H * 0.7; rr((W - fw) / 2, H * 0.14, fw, fh, U(24)); ctx.stroke(); ctx.setLineDash([]);
-    txt("De pie, quieto, que se vea de la cabeza a los pies", W / 2, H * 0.14 + fh + U(40), `600 ${U(22)}px ${FB}`, "#fff", "center");
+    txt(def.golf ? "Posición de address, quieto, cuerpo y palo enteros" : "De pie, quieto, que se vea de la cabeza a los pies", W / 2, H * 0.14 + fh + U(40), `600 ${U(22)}px ${FB}`, "#fff", "center");
     return;
   }
+  if (def.golf) { drawGolfHUD(now, m); return; }
 
   // big rep counter (bottom right)
   const reps = set.reps.length, bottom = H - (view.W / view.dpr < 520 ? U(128) : U(96));
@@ -1174,6 +1211,7 @@ function drawHUD(now) {
 
 /* ---------------- summary ---------------- */
 function buildSummary(s) {
+  if (s.def.golf) return buildGolfSummary(s);
   const def = s.def, reps = s.reps;
   const vs = reps.map(r => r.meanV), best = Math.max(...vs), bestI = vs.indexOf(best);
   const worst = Math.min(...vs), worstI = vs.indexOf(worst), lastLoss = reps[reps.length - 1].loss;
@@ -1210,6 +1248,8 @@ function verdictOf(sm) {
 }
 
 function renderSummary(sm) {
+  resetSummaryLayout();
+  if (sm.golf) return renderGolf(sm);
   $("#t-sum").textContent = sm.name;
   const dt = sm.date.toLocaleDateString("es-ES", {day:"numeric", month:"short"}) + " · " + sm.date.toLocaleTimeString("es-ES", {hour:"2-digit", minute:"2-digit"});
   $("#s-meta").textContent = [sm.client || "Cliente", `Serie ${sm.n}`, sm.load ? `${sm.load} kg` : null, `Cámara ${sm.view === "frontal" ? "de frente" : "de lado"}`, dt].filter(Boolean).join(" · ");
@@ -1314,6 +1354,7 @@ function curveSVG(sm) {
 /* ---------------- shareable image (1080×1920, golf-style) ---------------- */
 async function loadImg(src) { return new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; }); }
 async function buildCard(sm) {
+  if (sm.golf) return buildGolfCard(sm);
   const W = 1080, H = 1920, c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
   const t = (s, x, y, f, col, al = "left") => { g.font = f; g.fillStyle = col; g.textAlign = al; g.textBaseline = "alphabetic"; g.fillText(s, x, y); };
   const R = (x, y, w, h, r) => { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); };
@@ -1375,13 +1416,14 @@ function slug(sm) { return `${(sm.client || "cliente").toLowerCase().replace(/[^
 /* ---------------- history (this device only) ---------------- */
 function saveHistory(sm) {
   const h = store.get("vlc.history", []);
-  h.unshift({d:sm.date.toISOString(), c:sm.client, ex:sm.name, load:sm.load, reps:sm.reps.length, best:sm.best, unit:sm.unit, loss:Math.round(sm.finalLoss)});
+  h.unshift(sm.golf ? {d:sm.date.toISOString(), c:sm.client, ex:sm.name, load:null, reps:1, best:sm.m.tempo, unit:"tempo", loss:null}
+    : {d:sm.date.toISOString(), c:sm.client, ex:sm.name, load:sm.load, reps:sm.reps.length, best:sm.best, unit:sm.unit, loss:Math.round(sm.finalLoss)});
   store.set("vlc.history", h.slice(0, 60));
 }
 function renderHistory() {
   const h = store.get("vlc.history", []);
   $("#histcard").hidden = !h.length;
-  $("#histbody").innerHTML = h.slice(0, 15).map(r => `<tr><td>${new Date(r.d).toLocaleDateString("es-ES", {day:"2-digit", month:"2-digit"})}</td><td>${esc(r.c || "—")}</td><td>${r.ex}</td><td>${r.load ? r.load + " kg" : "—"}</td><td>${r.reps}</td><td>${r.unit === "°/s" ? Math.round(r.best) + " °/s" : fmt(r.best, 2) + " m/s"}</td><td>−${r.loss} %</td></tr>`).join("");
+  $("#histbody").innerHTML = h.slice(0, 15).map(r => `<tr><td>${new Date(r.d).toLocaleDateString("es-ES", {day:"2-digit", month:"2-digit"})}</td><td>${esc(r.c || "—")}</td><td>${r.ex}</td><td>${r.load ? r.load + " kg" : "—"}</td><td>${r.reps}</td><td>${r.unit === "tempo" ? "tempo " + fmt(r.best, 1) + ":1" : r.unit === "°/s" ? Math.round(r.best) + " °/s" : fmt(r.best, 2) + " m/s"}</td><td>${r.loss == null ? "—" : "−" + r.loss + " %"}</td></tr>`).join("");
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;"}[c])); }
 
@@ -1487,7 +1529,92 @@ async function makeReel(sm) {
   const realLen = (a1 - a0) * rate, speed = clamp(realLen / 10, 1, 2), prSet = Math.min(speed / rate, 4);
   const flagRep = reps.filter(r => r.flags && r.flags.length).sort((x, y) => y.flags.length - x.flags.length)[0];
 
+  // ---------------- GOLF reel scenes ----------------
+  const golfReel = async () => {
+    const m = sm.m, SFg = sm.slowF || 1, vk = v => vt(v);
+    const tA = vk(sm.takeaway), tT = vk(sm.top), tI = vk(sm.impact), tF = vk(sm.finish);
+    const real = Math.min(SFg / rate, 4);
+    const phaseAt = v => v < tA ? "ADDRESS" : v < tT ? "SUBIDA" : v < tI ? "BAJADA" : v < tI + 0.15 * SFg / rate ? "IMPACTO" : "FINAL";
+    const pill = (txt1, col) => { g.font = `700 34px ${FB}`; const w = g.measureText(txt1).width + 60; RR(SAFE.x0, 1440, w, 70, 35); g.fillStyle = col; g.fill(); T(txt1, SAFE.x0 + w / 2, 1476, `700 34px ${FB}`, "#0a0e13", "center", "middle"); };
+    const pcol = p => p === "SUBIDA" ? C.amber : p === "BAJADA" ? C.cyan : p === "IMPACTO" ? C.red : "#fff";
+    // 1 · intro
+    await seek(tT); aimCam(tT, 1, true); SFX.riser();
+    await hold(2.4, (e) => {
+      drawSrc(1.5);
+      const sy = RH * easeInOut(clamp(e / 1.8, 0, 1)); g.fillStyle = C.cyan; g.fillRect(0, sy, RW, 4);
+      brand(easeOut(e / 0.4));
+      const a1 = easeOut((e - 0.25) / 0.5); T("ANÁLISIS DE SWING · IA", SAFE.x0, 820, `700 34px ${FB}`, C.green, "left", "alphabetic", a1);
+      const a2 = easeOut((e - 0.45) / 0.55); T("TU SWING", SAFE.x0, 990 + 80 * (1 - a2), `700 190px ${FD}`, "#fff", "left", "alphabetic", a2);
+      const a3 = easeOut((e - 0.8) / 0.5); T([showName ? sm.client : null, `Swing ${sm.n}`, m.view === "faceon" ? "vista de frente" : "desde atrás"].filter(Boolean).join(" · "), SAFE.x0, 1070, `600 42px ${FB}`, "rgba(238,242,246,.9)", "left", "alphabetic", a3);
+      if (e > 2.2) { g.fillStyle = `rgba(255,255,255,${(e - 2.2) / 0.2 * 0.6})`; g.fillRect(0, 0, RW, RH); }
+    });
+    // 2 · swing at real speed (replay already carries the graphics)
+    SFX.whoosh();
+    const full = () => { cam.cx = VW / 2; cam.cy = VH / 2; cam.h = Math.max(VH, VW * 16 / 9); };
+    full(); let hitDone = false;
+    await play(Math.max(0, tA - 0.8 * SFg / rate), Math.min(dur - 0.05, tF + 0.4 * SFg / rate), real, v => { full(); drawSrc(0); if (!hitDone && v >= tI) { hitDone = true; SFX.hit(); } brand(1, "VELOCIDAD REAL"); });
+    // 3 · slow motion with phases
+    SFX.whoosh();
+    await hold(0.6, (e, p) => { drawSrc(0.8); const a = easeOut(p * 2); T("CÁMARA LENTA", RW / 2, 930, `700 130px ${FD}`, "#fff", "center", "alphabetic", a); if (p < 0.25) { g.fillStyle = `rgba(255,255,255,${0.7 * (1 - p / 0.25)})`; g.fillRect(0, 0, RW, RH); } });
+    aimCam(tA, 1.05, true); let lastPh = "";
+    await play(Math.max(0, tA - 0.3 * SFg / rate), Math.min(dur - 0.05, tF + 0.2 * SFg / rate), Math.max(0.06, 0.3 * SFg / rate), v => {
+      aimCam(v, 1.05, false); drawSrc(0); const ph = phaseAt(v); if (ph !== lastPh) { lastPh = ph; if (ph !== "ADDRESS") SFX.tick(); }
+      brand(1, "CÁMARA LENTA"); pill(ph, pcol(ph));
+      if (v >= tT) T(`Subida ${fmt(m.back, 2)} s`, SAFE.x0, 1400, `700 40px ${FD}`, C.amber);
+      if (v >= tI) T(`Bajada ${fmt(m.down, 2)} s`, SAFE.x0 + 300, 1400, `700 40px ${FD}`, C.cyan);
+    });
+    // 4 · freeze at the top / impact with data
+    const freeze = async (tt, keyPN, title, lines, col) => {
+      await seek(tt); aimCam(tt, 1.1, true); SFX.hit();
+      const P = keyPN ? keyPN.map(p => ({x:p.x * VW, y:p.y * VH, v:p.v})) : null;
+      await hold(2.8, (e, p) => {
+        aimCam(tt, 1.1 + 0.12 * easeInOut(p), false); drawSrc(0.25);
+        if (P) { const ln = (a, b, c2, k2) => { if (P[a].v < 0.3 || P[b].v < 0.3) return; const dx = P[b].x - P[a].x, dy = P[b].y - P[a].y; const [x1, y1] = toR(P[a].x - dx * k2, P[a].y - dy * k2), [x2, y2] = toR(P[b].x + dx * k2, P[b].y + dy * k2); g.strokeStyle = c2; g.lineWidth = 10; g.lineCap = "round"; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+          const gr = easeOut(e / 0.5); ln(L.rs, L.ls, C.cyan, 0.45 * gr); ln(L.rh, L.lh, C.amber, 0.7 * gr); }
+        brand(1, title);
+        const ca = easeOut((e - 0.25) / 0.45), cy = 1150 + 60 * (1 - ca);
+        g.globalAlpha = ca; RR(SAFE.x0, cy, SAFE.x1 - SAFE.x0, 360, 32); g.fillStyle = "rgba(8,11,15,.86)"; g.fill(); g.strokeStyle = col; g.lineWidth = 4; g.stroke(); g.globalAlpha = 1;
+        T(lines[0], SAFE.x0 + 40, cy + 70, `700 30px ${FB}`, col, "left", "alphabetic", ca);
+        T(lines[1], SAFE.x0 + 40, cy + 190, fitFont(lines[1], SAFE.x1 - SAFE.x0 - 80, 130), "#fff", "left", "alphabetic", ca);
+        lines.slice(2).forEach((l, i) => T(l, SAFE.x0 + 40, cy + 250 + i * 46, `600 32px ${FB}`, "rgba(238,242,246,.85)", "left", "alphabetic", ca));
+      });
+    };
+    const okT = m.tempo >= 2.5 && m.tempo <= 3.7;
+    await freeze(tT, sm.reps[0].keyPN, "ARRIBA", ["TEMPO SUBIDA : BAJADA", `${fmt(m.tempo, 1)} : 1`, okT ? "Ritmo de jugador bueno (≈3:1)" : "Ideal ≈3:1", m.view === "faceon" ? `Giro ≈${Math.round(m.shTurn)}° hombros · ${Math.round(m.hipTurn)}° cadera` : `Brazo adelantado ${Math.round(m.leadArm)}°`], okT ? C.green : C.amber);
+    const bad = sm.gflags.filter(f => !f.ok), focus = bad[0];
+    if (m.view === "faceon") await freeze(tI, sm.keyImp, "IMPACTO", ["CABEZA EN EL IMPACTO", `${Math.round(Math.abs(m.headImp))} cm`, m.headImp < -5 ? "Se adelanta hacia el objetivo" : "Detrás de la bola: bien", `Cadera ${Math.round(m.hipImp)} cm hacia el objetivo`], m.headImp < -5 ? C.amber : C.green);
+    else await freeze(tI, sm.keyImp, "IMPACTO", ["ÁNGULO DE COLUMNA", `${Math.round(m.spineA)}° → ${Math.round(m.spineI)}°`, m.spineA - m.spineI > 8 ? "Te levantas al impactar (early extension)" : "Mantienes la inclinación: bien", `Cadera hacia la bola ${Math.round(Math.max(0, m.hipToBall))} cm`], m.spineA - m.spineI > 8 ? C.amber : C.green);
+    // 5 · results
+    SFX.whoosh(); let ticked = 0;
+    const vd = golfVerdict(sm), headline = bad.length === 0 ? "SWING SÓLIDO" : `${bad.length} ${bad.length === 1 ? "PUNTO" : "PUNTOS"} A TRABAJAR`;
+    await hold(3.6, (e) => {
+      drawSrc(0.6, true); brand(1, `SWING ${sm.n}`);
+      T("RESULTADO DEL SWING", SAFE.x0, 470, `700 36px ${FB}`, C.green, "left", "alphabetic", easeOut(e / 0.3));
+      sm.gflags.slice(0, 6).forEach((f, i) => {
+        const a = easeOut((e - 0.2 - i * 0.22) / 0.4); if (a <= 0) return; if (ticked <= i) { ticked = i + 1; SFX.tick(); }
+        const y = 560 + i * 120 + 30 * (1 - a);
+        g.globalAlpha = a; RR(SAFE.x0, y, SAFE.x1 - SAFE.x0, 100, 22); g.fillStyle = "rgba(10,14,19,.84)"; g.fill(); g.strokeStyle = f.ok ? C.green : C.amber; g.lineWidth = 3; g.stroke(); g.globalAlpha = 1;
+        g.fillStyle = f.ok ? C.green : C.amber; g.globalAlpha = a; g.beginPath(); g.arc(SAFE.x0 + 44, y + 50, 16, 0, 7); g.fill(); g.globalAlpha = 1;
+        let fs = 34; g.font = `600 ${fs}px ${FB}`; while (g.measureText(f.t).width > SAFE.x1 - SAFE.x0 - 110 && fs > 20) { fs -= 1; g.font = `600 ${fs}px ${FB}`; }
+        T(f.t, SAFE.x0 + 80, y + 62, `600 ${fs}px ${FB}`, "#fff", "left", "alphabetic", a);
+      });
+      const ha = easeOut((e - 1.8) / 0.4); if (ha > 0) { g.font = `700 48px ${FD}`; const w = g.measureText(headline).width + 70; RR(SAFE.x0, 1330, w, 84, 42); g.globalAlpha = ha; g.fillStyle = vd.col; g.fill(); g.globalAlpha = 1; T(headline, SAFE.x0 + w / 2, 1373, `700 48px ${FD}`, "#0a0e13", "center", "middle", ha); }
+    });
+    // 6 · CTA
+    SFX.whoosh(); setTimeout(() => { tone(523, 0.9, 0.12, "triangle"); tone(659, 0.9, 0.1, "triangle", 0.05); tone(784, 0.9, 0.1, "triangle", 0.1); }, 250);
+    await hold(2.8, (e) => {
+      drawSrc(0.8, true); const a = easeOut(e / 0.5), sc = 0.7 + 0.3 * a;
+      g.save(); g.translate(RW / 2, 700); g.scale(sc, sc); g.globalAlpha = a; g.beginPath(); g.arc(0, 0, 170, 0, 7); g.fillStyle = C.brand; g.fill();
+      T("FITNESS", 0, -22, `800 62px ${FB}`, "#fff", "center", "middle", a); T("VLC", 0, 48, `800 62px ${FB}`, "#fff", "center", "middle", a); g.restore(); g.globalAlpha = 1;
+      const b = easeOut((e - 0.4) / 0.5);
+      T("¿ANALIZAMOS", RW / 2, 1010, `700 110px ${FD}`, "#fff", "center", "alphabetic", b); T("TU SWING?", RW / 2, 1120, `700 110px ${FD}`, C.green, "center", "alphabetic", b);
+      const c2 = easeOut((e - 0.8) / 0.5); T("Preparación física para golf · Valencia", RW / 2, 1210, `600 38px ${FB}`, "rgba(238,242,246,.9)", "center", "alphabetic", c2);
+      g.globalAlpha = c2; RR(RW / 2 - 330, 1270, 660, 96, 48); g.fillStyle = "#fff"; g.fill(); g.globalAlpha = 1; T("personaltrainervlc.com", RW / 2, 1319, `700 44px ${FB}`, "#0a0e13", "center", "middle", c2);
+    });
+  };
+
   rec.start(250);
+  if (sm.golf) { await golfReel(); } else {
   // ===== 1 · INTRO =====
   await seek(vt(best.keyT ?? best.tp)); aimCam(vt(best.keyT ?? best.tp), 1, true);
   SFX.riser();
@@ -1649,6 +1776,7 @@ async function makeReel(sm) {
     T("personaltrainervlc.com", RW / 2, 1319, `700 44px ${FB}`, "#0a0e13", "center", "middle", c);
   });
 
+  }
   await new Promise(r => { rec.onstop = r; rec.stop(); });
   src.pause(); URL.revokeObjectURL(src.src);
   if (!reelBusy) return;
@@ -1667,6 +1795,253 @@ function shareFileTo(file, title, msgEl) {
   const fallback = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); msgEl.textContent = "Guardado en Archivos › Descargas. Ábrelo y usa Compartir › Guardar vídeo para pasarlo a Fotos."; };
   try { if (navigator.canShare && navigator.canShare({files:[file]})) { navigator.share({files:[file], title}).then(() => { msgEl.textContent = "Listo. Si elegiste «Guardar vídeo», ya está en Fotos."; }).catch(e => { if (!e || e.name !== "AbortError") fallback(); }); return; } } catch {}
   fallback();
+}
+
+
+/* =====================================================================
+   GOLF · análisis de un swing (address → subida → arriba → bajada →
+   impacto → final). Vista de frente (face-on) o desde atrás (DTL).
+   ===================================================================== */
+function golfPPM(P) {   // address is a bent posture: scale from body segments (torso+muslo+pierna ≈ 0,78·altura)
+  const th = (dist(P[L.lh], P[L.lk]) + dist(P[L.rh], P[L.rk])) / 2, sh = (dist(P[L.lk], P[L.la]) + dist(P[L.rk], P[L.ra])) / 2;
+  return (dist(mid(P[L.ls], P[L.rs]), mid(P[L.lh], P[L.rh])) + th + sh) / (0.78 * st.height / 100);
+}
+const handsOf = P => mid(P[L.lw], P[L.rw]);
+function headOf(P) { const pts = [P[0], P[7], P[8]].filter(p => p.v > 0.5); if (!pts.length) return P[0]; return {x:pts.reduce((a, p) => a + p.x, 0) / pts.length, y:pts.reduce((a, p) => a + p.y, 0) / pts.length, v:1}; }
+const hipOf = P => mid(P[L.lh], P[L.rh]);
+const GPH = {address:["ADDRESS · QUIETO", "#ffb020"], ready:["LISTO · HAZ EL SWING", "#58e68c"], back:["SUBIDA", "#ffb020"], down:["BAJADA", "#3dd6f5"], follow:["FINAL", "#3dd6f5"], done:["ANALIZANDO…", "#58e68c"]};
+
+function processGolf(P, t, k) {
+  const G = set.golf, ppm = set.ppm, h = handsOf(P), SF = st.file ? (st.slowF || 1) : 1;
+  G.hist.push({t, h:{x:h.x, y:h.y}}); while (G.hist.length && t - G.hist[0].t > 10 * SF) G.hist.shift();
+  const mS = mid(P[L.ls], P[L.rs]), mH = hipOf(P);
+  if (G.addr) G.curve.push({t, s:(G.addr.h.y - h.y) / ppm});
+  if (G.state === "address") {
+    const r = G.hist.filter(f => t - f.t <= 0.5 * SF);
+    if (r.length >= 6 && t - G.hist[0].t >= 0.5 * SF) {
+      const xs = r.map(f => f.h.x), ys = r.map(f => f.h.y);
+      const still = (Math.max(...xs) - Math.min(...xs)) / ppm < 0.035 && (Math.max(...ys) - Math.min(...ys)) / ppm < 0.035;
+      if (still && h.y > (mS.y + mH.y) / 2) {
+        G.addr = {t, P, h:{x:h.x, y:h.y}}; G.curve = G.curve.filter(c => c.t >= t - 1);
+        if (!G.ready) { G.ready = true; beep(1320, 0.12); say("Listo"); }
+      }
+    }
+    if (G.addr && dist(h, G.addr.h) / ppm > 0.12) {
+      let tk = G.addr.t; for (const f of G.hist) if (f.t >= G.addr.t && dist(f.h, G.addr.h) / ppm < 0.03) tk = f.t;
+      G.takeaway = tk; G.state = "back"; G.maxHy = 0; G.top = tk; G.snapAddr = snapAt(G.addr.t);
+    }
+  } else if (G.state === "back") {
+    const hy = (G.addr.h.y - h.y) / ppm;
+    if (hy > G.maxHy) { G.maxHy = hy; G.top = t; }
+    if (G.maxHy > 0.25 && hy < G.maxHy - 0.12) { G.state = "down"; G.snapTop = snapAt(G.top); G.minD = 1e9; G.impact = t; }
+    else if (t - G.takeaway > 6 * SF || (G.maxHy < 0.25 && t - G.takeaway > 2.5 * SF && dist(h, G.addr.h) / ppm < 0.06)) { G.state = "address"; G.addr = null; G.ready = false; G.curve = []; }   // waggle: start again
+  } else if (G.state === "down") {
+    const d = dist(h, G.addr.h) / ppm;
+    if (d < G.minD) { G.minD = d; G.impact = t; }
+    if ((t > G.impact && d > G.minD + 0.18) || t - G.top > 3 * SF) { G.state = "follow"; G.snapImp = snapAt(G.impact); }
+  } else if (G.state === "follow") {
+    const r = G.hist.filter(f => t - f.t <= 0.4 * SF);
+    const sp = r.length > 3 ? dist(r[0].h, r[r.length - 1].h) / ppm / Math.max(0.01, r[r.length - 1].t - r[0].t) * SF : 9;
+    if ((sp < 0.3 && t - G.impact > 0.6 * SF) || t - G.impact > 3.5 * SF) { G.finish = t; G.snapFin = snapAt(t); G.state = "done"; finishGolf(); }
+  }
+  const lab = G.state === "address" && G.ready ? GPH.ready : GPH[G.state];
+  G.label = lab[0]; G.col = lab[1];
+}
+
+function golfMetrics(G) {
+  const F = set.frames, at = tt => nearest(F, tt).P, ppm = set.ppm, SF = st.file ? (st.slowF || 1) : 1;
+  const Pa = G.addr.P, Pt = at(G.top), Pi = at(G.impact), Pf = at(G.finish);
+  const view = viewOf(Pa) === "frontal" ? "faceon" : "dtl";
+  const cm = v => v / ppm * 100;
+  const hA = handsOf(Pa), hT = handsOf(Pt);
+  const trail = Math.sign(hT.x - hA.x) || 1;                    // image direction of the backswing (face-on)
+  const right = st.hand !== "L", lead = right ? "l" : "r";
+  const back = (G.top - G.takeaway) / SF, down = Math.max(0.03, (G.impact - G.top) / SF), tempo = back / down;
+  const head = {a:headOf(Pa), t:headOf(Pt), i:headOf(Pi)};
+  const m = {view, tempo, back, down, total:(G.finish - G.takeaway) / SF};
+  if (view === "faceon") {
+    m.headTop = cm(head.t.x - head.a.x) * trail;                 // + = hacia atrás
+    m.headImp = cm(head.i.x - head.a.x) * trail;                 // − = hacia el objetivo
+    m.hipTop = cm(hipOf(Pt).x - hipOf(Pa).x) * trail;
+    m.hipImp = -cm(hipOf(Pi).x - hipOf(Pa).x) * trail;           // + = hacia el objetivo
+    const turn = (a, b, c, d) => Math.acos(clamp(dist(c, d) / Math.max(1, dist(a, b)), 0, 1)) * 180 / Math.PI;
+    m.shTurn = turn(Pa[L.ls], Pa[L.rs], Pt[L.ls], Pt[L.rs]); m.hipTurn = turn(Pa[L.lh], Pa[L.rh], Pt[L.lh], Pt[L.rh]); m.xf = m.shTurn - m.hipTurn;
+  } else {
+    const sd = side(Pa), spine = P => tiltFromVertical(P[L[sd + "h"]], P[L[sd + "s"]]);
+    m.spineA = spine(Pa); m.spineI = spine(Pi);
+    const ballDir = Math.sign(hA.x - hipOf(Pa).x) || 1;
+    m.hipToBall = cm(hipOf(Pi).x - hipOf(Pa).x) * ballDir;
+  }
+  m.headDy = cm(head.i.y - head.a.y);                             // + = baja
+  m.leadArm = angle(Pt[L[lead + "s"]], Pt[L[lead + "e"]], Pt[L[lead + "w"]]);
+  let sp = 0; const W = F.filter(f => f.t >= G.top && f.t <= G.impact + 0.05 * SF);
+  for (let i = 2; i < W.length; i++) { const dt = (W[i].t - W[i - 2].t) / SF; if (dt > 0) sp = Math.max(sp, dist(handsOf(W[i].P), handsOf(W[i - 2].P)) / ppm / dt); }
+  m.handSpeed = sp;
+  return m;
+}
+function golfFlags(m) {
+  const f = [], c = v => Math.round(Math.abs(v));
+  const tv = fmt(m.tempo, 1).replace(",0", "");
+  if (m.tempo < 2.5) f.push({ok:false, k:"tempo", t:`Subida rápida para tu bajada: tempo ${tv}:1 (ideal ≈3:1)`});
+  else if (m.tempo > 3.7) f.push({ok:false, k:"tempo", t:`Subida muy lenta: tempo ${tv}:1 (ideal ≈3:1)`});
+  else f.push({ok:true, k:"tempo", t:`Tempo de jugador bueno: ${tv}:1`});
+  if (m.view === "faceon") {
+    if (m.headTop > 6) f.push({ok:false, k:"head", t:`La cabeza se desplaza ${c(m.headTop)} cm hacia atrás en la subida (sway)`});
+    else if (m.headTop < -3) f.push({ok:false, k:"head", t:`La cabeza va ${c(m.headTop)} cm hacia el objetivo en la subida (pivote invertido)`});
+    else f.push({ok:true, k:"head", t:`Cabeza estable en la subida (${c(m.headTop)} cm)`});
+    if (m.hipTop > 6) f.push({ok:false, k:"hip", t:`Sway de cadera: ${c(m.hipTop)} cm hacia atrás en la subida`});
+    else f.push({ok:true, k:"hip", t:`Cadera centrada en la subida (${c(m.hipTop)} cm)`});
+    if (m.headImp < -5) f.push({ok:false, k:"headI", t:`La cabeza se adelanta ${c(m.headImp)} cm al impacto`});
+    else f.push({ok:true, k:"headI", t:`Cabeza detrás de la bola en el impacto`});
+    if (m.hipImp < 2) f.push({ok:false, k:"shift", t:`Poca transferencia: la cadera no avanza hacia el objetivo al impactar`});
+    else f.push({ok:true, k:"shift", t:`Transferencia de peso: cadera ${c(m.hipImp)} cm hacia el objetivo`});
+  } else {
+    const loss = m.spineA - m.spineI;
+    if (loss > 8) f.push({ok:false, k:"spine", t:`Pierdes ${c(loss)}° de inclinación de columna al impacto (early extension)`});
+    else f.push({ok:true, k:"spine", t:`Mantienes el ángulo de columna (${Math.round(m.spineA)}° → ${Math.round(m.spineI)}°)`});
+    if (m.hipToBall > 5) f.push({ok:false, k:"hipball", t:`La cadera se acerca ${c(m.hipToBall)} cm a la bola en el impacto`});
+    else f.push({ok:true, k:"hipball", t:`La cadera no se va hacia la bola`});
+  }
+  if (Math.abs(m.headDy) > 6) f.push({ok:false, k:"headY", t:m.headDy > 0 ? `La cabeza baja ${c(m.headDy)} cm hasta el impacto` : `Te levantas: la cabeza sube ${c(m.headDy)} cm al impacto`});
+  if (m.leadArm < 150) f.push({ok:false, k:"arm", t:`Brazo adelantado flexionado arriba (${Math.round(m.leadArm)}°)`});
+  else f.push({ok:true, k:"arm", t:`Brazo adelantado firme arriba (${Math.round(m.leadArm)}°)`});
+  return f;
+}
+function finishGolf() {
+  const G = set.golf, m = golfMetrics(G), flags = golfFlags(m);
+  const norm = tt => { const fr = nearest(set.frames, tt); return fr ? fr.P.map(p => ({x:X(p) / view.W, y:Y(p) / view.H, v:p.v})) : null; };
+  set.golfRes = {m, flags, keyTop:norm(G.top), keyImp:norm(G.impact)};
+  set.reps.push({n:1, tv:G.takeaway, tp:G.impact, keyT:G.top, meanV:m.handSpeed || 1, amp:0.5, loss:0, flags:[], cycle:null, sMin:0, sMax:0, snap:G.snapTop || snapStage(), keyPN:set.golfRes.keyTop, keyAngle:{label:"Brazo adelantado", value:Math.round(m.leadArm) + "°"}});
+  beep(1100, 0.08); setTimeout(() => beep(1660, 0.12), 120);
+  say(`Tempo ${fmt(m.tempo, 1).replace(",", " coma ")} a 1`);
+  setTimeout(() => endSet(false), 700);
+}
+
+function drawGolfHUD(now, m) {
+  const W = view.W, H = view.H, G = set.golf, P = set.lastP;
+  // address references: head circle + vertical lines at head and hips (stay where the address was)
+  if (G.addr) {
+    const hd = headOf(G.addr.P), hp = hipOf(G.addr.P), r = U(34);
+    ctx.setLineDash([U(10), U(8)]); ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = U(2);
+    for (const x of [X(hd), X(hp)]) { ctx.beginPath(); ctx.moveTo(x, Y(hd) - U(60)); ctx.lineTo(x, Y(G.addr.P[L.la]) + U(10)); ctx.stroke(); }
+    ctx.setLineDash([]); ctx.beginPath(); ctx.arc(X(hd), Y(hd), r, 0, 7); ctx.stroke();
+    if (P) { const ch = headOf(P), off = Math.abs(ch.x - hd.x) / set.ppm * 100, col = off > 6 ? C.red : C.green;
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(ch), Y(ch), U(8), 0, 7); ctx.fill();
+      if (off > 2) txt(`${Math.round(off)} cm`, X(ch) + U(16), Y(ch) - U(16), `700 ${U(20)}px ${FB}`, col); }
+  }
+  // big centre message when ready
+  if (G.state === "address" && G.ready) {
+    const a = 0.6 + 0.4 * Math.sin(now * 5);
+    ctx.globalAlpha = a; txt("LISTO", W / 2, H * 0.83, `700 ${U(90)}px ${FD}`, C.green, "center"); ctx.globalAlpha = 1;
+    txt("Haz el swing completo y aguanta el final", W / 2, H * 0.83 + U(34), `600 ${U(18)}px ${FB}`, "#fff", "center");
+  } else if (G.state === "address") {
+    txt("Ponte en address y quédate quieto", W / 2, H * 0.86, `600 ${U(22)}px ${FB}`, "#fff", "center");
+  }
+  txt(`Golf · swing · ${st.hand === "L" ? "zurdo" : "diestro"}`, m, m + U(76), `700 ${U(46)}px ${FD}`, "#fff");
+  txt([st.client || "Golfista", `Swing ${set.n}`].join(" · "), m, m + U(104), `600 ${U(19)}px ${FB}`, "rgba(238,242,246,.85)");
+  txt("Estimación por visión artificial · 1 cámara", m, H - U(64), `500 ${U(12)}px ${FB}`, "rgba(255,255,255,.55)");
+}
+
+function buildGolfSummary(s) {
+  const G = s.golf, R = s.golfRes;
+  return {
+    golf:true, id:Date.now(), date:new Date(), ex:"golf", name:"Golf · swing", client:st.client, load:null, n:s.n, vlTarget:st.vlTarget,
+    m:R.m, gflags:R.flags, snaps:{addr:G.snapAddr, top:G.snapTop, imp:G.snapImp, fin:G.snapFin}, keyImp:R.keyImp,
+    reps:s.reps, best:R.m.tempo, bestI:0, worstI:0, deepI:0, worst:R.m.tempo, finalLoss:0, maxLoss:0, ampMean:0, ampCV:0, tut:0, flagCount:{},
+    unit:"", sig:"m", curve:G.curve, takeaway:G.takeaway, top:G.top, impact:G.impact, finish:G.finish,
+    video:s.videoBlob, mime:s.mime, recT0:s.recT0, rate:s.rate || 1, slowF:st.file ? (st.slowF || 1) : 1, boxHist:s.boxHist, stageAR:cv.width / cv.height,
+    view:R.m.view === "faceon" ? "frontal" : "lateral", t0:s.tStartCount, free:false
+  };
+}
+function resetSummaryLayout() {
+  $("#again").textContent = "Otra serie";
+  $("#romtable").parentElement.hidden = false; $("#keys").style.gridTemplateColumns = ""; $("#velh").parentElement.hidden = false;
+}
+function golfVerdict(sm) {
+  const bad = sm.gflags.filter(f => !f.ok);
+  const col = bad.length === 0 ? C.green : bad.length <= 2 ? C.amber : C.red;
+  const head = bad.length === 0 ? "Swing sólido: nada que corregir en lo que se puede medir." : `${bad.length} ${bad.length === 1 ? "punto" : "puntos"} a trabajar.`;
+  return {col, head, html:`<b>${head}</b> Tempo ${fmt(sm.m.tempo, 1)}:1 (subida ${fmt(sm.m.back, 2)} s · bajada ${fmt(sm.m.down, 2)} s). ${bad.length ? "Lo primero: " + bad[0].t.charAt(0).toLowerCase() + bad[0].t.slice(1) + "." : ""}`};
+}
+function renderGolf(sm) {
+  const m = sm.m;
+  $("#t-sum").textContent = "Golf · swing";
+  const dt = sm.date.toLocaleDateString("es-ES", {day:"numeric", month:"short"}) + " · " + sm.date.toLocaleTimeString("es-ES", {hour:"2-digit", minute:"2-digit"});
+  $("#s-meta").textContent = [sm.client || "Golfista", `Swing ${sm.n}`, m.view === "faceon" ? "Vista de frente" : "Vista desde atrás (línea de tiro)", st.hand === "L" ? "Zurdo" : "Diestro", dt].join(" · ");
+  const vd = golfVerdict(sm);
+  $("#verdict").style.borderColor = vd.col; $("#verdict .dot").style.background = vd.col; $("#verdict p").innerHTML = vd.html;
+  const rv = $("#replay"); if (sm.video) { rv.src = URL.createObjectURL(sm.video); rv.hidden = false; } else rv.hidden = true;
+  const k = $("#keys"); k.innerHTML = ""; k.style.gridTemplateColumns = "repeat(4,minmax(0,1fr))";
+  for (const [key, lab] of [["addr", "Address"], ["top", "Arriba"], ["imp", "Impacto"], ["fin", "Final"]]) {
+    const sn = sm.snaps[key]; if (!sn) continue; const d = document.createElement("div"); d.className = "key";
+    d.innerHTML = `<img alt="${lab}"><span><b>${lab}</b></span>`; cropURL(sn, 3 / 4, 260).then(u => { d.querySelector("img").src = u; }); k.appendChild(d);
+  }
+  const tc = m.tempo >= 2.5 && m.tempo <= 3.7 ? "" : ` style="color:${C.amber}"`;
+  const tiles = [["Tempo", `<span${tc}>${fmt(m.tempo, 1)} : 1</span>`, `subida ${fmt(m.back, 2)} s · bajada ${fmt(m.down, 2)} s · ideal ≈3:1`]];
+  if (m.view === "faceon") {
+    tiles.push(["Cabeza en la subida", `${Math.round(Math.abs(m.headTop))} cm`, m.headTop >= 0 ? "hacia atrás · bien si < 6 cm" : "hacia el objetivo"]);
+    tiles.push(["Cadera", `${Math.round(Math.abs(m.hipTop))} cm`, `sway en la subida · al impacto ${Math.round(m.hipImp)} cm hacia el objetivo`]);
+    tiles.push(["Giro arriba (≈)", `${Math.round(m.shTurn)}° · ${Math.round(m.hipTurn)}°`, `hombros · cadera · separación ≈${Math.round(m.xf)}°`]);
+  } else {
+    tiles.push(["Columna", `${Math.round(m.spineA)}° → ${Math.round(m.spineI)}°`, "inclinación en address → impacto"]);
+    tiles.push(["Cadera hacia la bola", `${Math.round(Math.max(0, m.hipToBall))} cm`, "bien si < 5 cm (si no: early extension)"]);
+    tiles.push(["Brazo adelantado arriba", `${Math.round(m.leadArm)}°`, "180° = estirado · bien si > 150°"]);
+  }
+  $("#tiles").innerHTML = tiles.map(([l, v, s2]) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s2}</div></div>`).join("");
+  $("#velh").textContent = "Fases del swing"; $("#velchart").innerHTML = phaseSVG(sm);
+  $("#flags").innerHTML = sm.gflags.map(f => `<li class="${f.ok ? "ok" : ""}">${f.t}</li>`).join("");
+  $("#romtable").parentElement.hidden = true;
+  $("#curveh").textContent = "Altura de las manos durante el swing"; $("#curve").innerHTML = golfCurveSVG(sm);
+  const today = st.session.filter(s => s.ex === "golf");
+  $("#sessions").innerHTML = today.map(s => `<div class="sess ${s.id === sm.id ? "cur" : ""}"><div class="eyebrow">Swing ${s.n}</div><b>${fmt(s.m.tempo, 1)} : 1</b><div class="note">${s.gflags.filter(f => !f.ok).length} a trabajar</div></div>`).join("");
+  $("#shareimg").onclick = () => shareImage(sm); $("#sharevid").onclick = () => shareVideo(sm);
+  $("#sharevid").hidden = !sm.video; $("#mkreel").hidden = !sm.video; $("#mkreel").onclick = () => makeReel(sm);
+  $("#again").textContent = "Otro swing";
+  $("#shareimg").disabled = true; prepFiles(sm);
+}
+function phaseSVG(sm) {
+  const m = sm.m, W = 560, H = 150, pl = 12, pr = 12, tot = m.back + m.down + Math.max(0.3, (sm.finish - sm.impact) / (sm.slowF || 1));
+  const x = v => pl + (W - pl - pr) * v / tot, fol = tot - m.back - m.down;
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Duración de las fases del swing">`;
+  const seg = (a, b, col, lab, val) => { s += `<rect x="${x(a)}" y="40" width="${Math.max(2, x(b) - x(a) - 3)}" height="44" rx="8" fill="${col}"/>`; if (x(b) - x(a) > 60) s += `<text x="${(x(a) + x(b)) / 2}" y="68" fill="#0a0e13" font-size="15" font-weight="700" text-anchor="middle" font-family="Barlow">${lab}</text>`; s += `<text x="${(x(a) + x(b)) / 2}" y="108" fill="${C.muted}" font-size="13" text-anchor="middle" font-family="Barlow">${val}</text>`; };
+  seg(0, m.back, C.amber, "SUBIDA", `${fmt(m.back, 2)} s`); seg(m.back, m.back + m.down, C.cyan, "BAJADA", `${fmt(m.down, 2)} s`); seg(m.back + m.down, tot, "rgba(255,255,255,.25)", "FINAL", "");
+  const ideal = m.down * 3; if (ideal < tot) s += `<line x1="${x(ideal)}" x2="${x(ideal)}" y1="28" y2="96" stroke="#fff" stroke-dasharray="4 4"/><text x="${x(ideal)}" y="22" fill="#fff" font-size="12" text-anchor="middle" font-family="Barlow">subida ideal 3:1</text>`;
+  s += `<text x="${pl}" y="138" fill="${C.muted}" font-size="13" font-family="Barlow">Tempo ${fmt(m.tempo, 1)}:1 · swing completo ${fmt(m.back + m.down, 2)} s hasta el impacto${sm.slowF > 1 ? ` · corregido ×${sm.slowF} cámara lenta` : ""}</text>`;
+  return s + "</svg>";
+}
+function golfCurveSVG(sm) {
+  const c = sm.curve.filter(p => p.t >= sm.takeaway - 0.6 * (sm.slowF || 1) && p.t <= sm.finish + 0.3); if (c.length < 3) return "";
+  const W = 1100, H = 200, pl = 44, pr = 12, pt = 18, pb = 28, t0 = c[0].t, t1 = c[c.length - 1].t;
+  const smin = Math.min(...c.map(p => p.s)), smax = Math.max(...c.map(p => p.s));
+  const x = t => pl + (W - pl - pr) * (t - t0) / Math.max(0.01, t1 - t0), y = v => pt + (H - pt - pb) * (1 - (v - smin) / Math.max(1e-6, smax - smin));
+  let d = ""; c.forEach((p, i) => { d += (i ? "L" : "M") + x(p.t).toFixed(1) + " " + y(p.s).toFixed(1); });
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Altura de las manos">`;
+  s += `<path d="${d}" fill="none" stroke="${C.cyan}" stroke-width="3" stroke-linejoin="round"/>`;
+  const near = t => c.reduce((b, p) => Math.abs(p.t - t) < Math.abs(b.t - t) ? p : b, c[0]);
+  for (const [t, lab, col] of [[sm.takeaway, "Inicio", "#fff"], [sm.top, "Arriba", C.amber], [sm.impact, "Impacto", C.red], [sm.finish, "Final", "#fff"]]) {
+    const p = near(t); s += `<circle cx="${x(p.t)}" cy="${y(p.s)}" r="7" fill="${col}"/><text x="${x(p.t)}" y="${Math.max(14, y(p.s) - 12)}" fill="#fff" font-size="13" font-weight="700" text-anchor="middle" font-family="Barlow">${lab}</text>`;
+  }
+  return s + "</svg>";
+}
+async function buildGolfCard(sm) {
+  const W = 1080, H = 1920, c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d"), m = sm.m;
+  const t = (s, x, y, f, col, al = "left") => { g.font = f; g.fillStyle = col; g.textAlign = al; g.textBaseline = "alphabetic"; g.fillText(s, x, y); };
+  const R = (x, y, w, h, r) => { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); };
+  g.fillStyle = "#0a0e13"; g.fillRect(0, 0, W, H); const M = 120;
+  const pics = [["top", "ARRIBA"], ["imp", "IMPACTO"]];
+  for (let i = 0; i < 2; i++) { const sn = sm.snaps[pics[i][0]]; if (!sn) continue; const im = await loadImg(sn.url); if (!im) continue; const iw = 415, ih = 640, x = M + i * 425, [cx, cy, cw, ch] = cropFor(sn, iw / ih); g.save(); R(x, 220, iw, ih, 24); g.clip(); g.drawImage(im, cx, cy, cw, ch, x, 220, iw, ih); g.restore(); R(x + 16, 220 + ih - 60, 170, 44, 22); g.fillStyle = "rgba(0,0,0,.7)"; g.fill(); t(pics[i][1], x + 101, 220 + ih - 30, `700 22px ${FB}`, "#fff", "center"); }
+  R(M, 110, 200, 46, 23); g.fillStyle = C.brand; g.fill(); t("FITNESS VLC", M + 100, 141, `700 22px ${FB}`, "#fff", "center");
+  t(sm.date.toLocaleDateString("es-ES", {day:"numeric", month:"long"}), W - M, 141, `600 22px ${FB}`, C.muted, "right");
+  t("GOLF · SWING", M, 960, `700 96px ${FD}`, "#fff");
+  t([sm.client || "Golfista", `Swing ${sm.n}`, m.view === "faceon" ? "vista de frente" : "vista desde atrás"].join(" · "), M, 1008, `600 30px ${FB}`, "rgba(238,242,246,.85)");
+  const tiles = [["TEMPO", `${fmt(m.tempo, 1)} : 1`], ["SUBIDA · BAJADA", `${fmt(m.back, 2)} · ${fmt(m.down, 2)} s`]];
+  if (m.view === "faceon") tiles.push(["CABEZA (SUBIDA)", `${Math.round(Math.abs(m.headTop))} cm`], ["SWAY CADERA", `${Math.round(Math.abs(m.hipTop))} cm`]);
+  else tiles.push(["COLUMNA", `${Math.round(m.spineA)}° → ${Math.round(m.spineI)}°`], ["BRAZO ARRIBA", `${Math.round(m.leadArm)}°`]);
+  tiles.forEach(([l, v], i) => { const x = M + (i % 2) * 425, y = 1050 + Math.floor(i / 2) * 160; R(x, y, 415, 144, 20); g.fillStyle = "#121820"; g.fill(); g.strokeStyle = "rgba(255,255,255,.12)"; g.stroke(); t(l, x + 22, y + 40, `600 20px ${FB}`, C.muted); let fs = 64; g.font = `700 ${fs}px ${FD}`; while (g.measureText(v).width > 370 && fs > 30) { fs -= 4; g.font = `700 ${fs}px ${FD}`; } t(v, x + 22, y + 116, `700 ${fs}px ${FD}`, "#fff"); });
+  let y = 1410; for (const f of sm.gflags.slice(0, 5)) { g.fillStyle = f.ok ? C.green : C.amber; g.beginPath(); g.arc(M + 10, y - 9, 9, 0, 7); g.fill(); let fs = 27; g.font = `600 ${fs}px ${FB}`; while (g.measureText(f.t).width > 800 && fs > 18) { fs -= 1; g.font = `600 ${fs}px ${FB}`; } t(f.t, M + 34, y, `600 ${fs}px ${FB}`, "#fff"); y += 56; }
+  t("Estimación por visión artificial · 1 cámara", M, 1850, `500 20px ${FB}`, C.muted);
+  t("personaltrainervlc.com", W - M, 1850, `600 20px ${FB}`, C.muted, "right");
+  return new Promise(r => c.toBlob(r, "image/png"));
 }
 
 // keep screen awake during sets
