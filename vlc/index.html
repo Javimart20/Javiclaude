@@ -178,6 +178,12 @@ input[type=range]{accent-color:var(--cyan);height:28px}
         <span class="met">Detecta solo el movimiento que se repite: cuenta ciclos, ritmo, velocidad pico, rangos de cada articulación y asimetrías</span>
         <span class="cam">Funcional, kettlebell, wall ball, burpees, saltos, remo… Cuerpo entero en pantalla</span>
       </button>
+      <button class="ex wide sim" id="opensim" type="button">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#ff3b8a" stroke-width="2.2" stroke-linecap="round"><path d="M2 20h9"/><circle cx="6" cy="14" r="3"/><path d="M9 18l8-6 6 8 0 10M23 30h5"/><circle cx="17" cy="8" r="3.5" fill="#ff3b8a" stroke="none" opacity=".7"/></svg>
+        <span class="nm" style="color:#ff6aa6">Simulador · hip thrust</span>
+        <span class="met">Mueve cadera y pies y mira cómo cambia el reparto entre glúteo, isquios y cuádriceps, con las fuerzas del suelo y del banco</span>
+        <span class="cam">Sin cámara. Para explicar la técnica al cliente</span>
+      </button>
     </div>
 
     <div class="freeopts card" id="golfopts" hidden>
@@ -237,7 +243,7 @@ input[type=range]{accent-color:var(--cyan);height:28px}
       <h3>Historial en este iPad</h3>
       <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Ejercicio</th><th>Carga</th><th>Reps</th><th>Mejor vel.</th><th>Pérdida</th></tr></thead><tbody id="histbody"></tbody></table></div>
     </div>
-    <p class="note">Versión 11 · 26 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
+    <p class="note">Versión 12 · 28 oct. Mediciones estimadas con visión artificial y una sola cámara. Sirven para comparar series del mismo cliente con la cámara en el mismo sitio; no son un medidor de velocidad de barra homologado.</p>
   </div>
 </section>
 
@@ -300,6 +306,62 @@ input[type=range]{accent-color:var(--cyan);height:28px}
 </section>
 
 <!-- ================= REEL ================= -->
+<!-- ================= SIMULADOR HIP THRUST ================= -->
+<section id="simview" class="view" hidden aria-labelledby="t-sim">
+  <div class="simwrap">
+    <div class="simhead">
+      <button class="btn ghost" id="simback" aria-label="Volver">← Volver</button>
+      <div class="brand"><span class="pill">FITNESS VLC</span><span class="eyebrow">Simulador biomecánico</span></div>
+    </div>
+    <h2 id="t-sim" class="simtitle">Hip thrust: <em>¿qué músculo trabaja?</em></h2>
+    <p class="note simlede">Arrastra la <b>cadera</b> (arriba/abajo) y los <b>pies</b> (cerca/lejos). El modelo calcula las fuerzas del suelo y del banco y reparte el esfuerzo entre glúteo, isquios y cuádriceps.</p>
+    <div class="simstage"><canvas id="simcv" aria-label="Figura de hip thrust interactiva"></canvas></div>
+    <div class="simbars" id="simbars"></div>
+    <p class="simsay" id="simsay" role="status"></p>
+    <div class="simctl">
+      <div class="chips" role="group" aria-label="Posición de los pies">
+        <button class="chip" data-p="near">Pies cerca</button>
+        <button class="chip" data-p="vert" aria-pressed="true">Espinilla vertical arriba</button>
+        <button class="chip" data-p="far">Pies lejos</button>
+        <button class="chip" id="simplay">▶ Repetición</button>
+      </div>
+      <div class="simgrid">
+        <div class="field"><label for="simload">Carga en la barra: <span id="simloadv">60</span> kg</label><input id="simload" type="range" min="0" max="200" step="5" value="60"></div>
+        <div class="field"><label for="simbw">Peso corporal: <span id="simbwv">75</span> kg</label><input id="simbw" type="range" min="45" max="130" step="1" value="75"></div>
+        <div class="field"><label for="simpush">Acción de los pies: <span id="simpushv">neutra</span></label><input id="simpush" type="range" min="-40" max="40" step="5" value="0"><span class="hint">← empujar el suelo lejos · tirar de los talones hacia ti →</span></div>
+        <div class="field"><label for="simbench">Altura del banco: <span id="simbenchv">42</span> cm</label><input id="simbench" type="range" min="30" max="55" step="1" value="42"></div>
+      </div>
+      <div class="toggles">
+        <label class="tog"><input type="checkbox" id="simice"> Suelo sin agarre (pies en deslizador)</label>
+        <label class="tog"><input type="checkbox" id="simfree"> Banco sin fijar</label>
+      </div>
+    </div>
+    <div class="card"><h3>Esfuerzo a lo largo de la repetición (pies donde están)</h3><div id="simcurve"></div></div>
+    <p class="disclaimer">Modelo 2D estático simplificado: segmentos rígidos con proporciones medias, carga sobre la cadera, contacto en escápulas y talones. Sirve para entender tendencias (qué cambia al mover los pies o la cadera), no para medir a un cliente concreto.</p>
+  </div>
+</section>
+<style>
+#simview{padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.simwrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.simhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.simtitle{font:700 clamp(30px,6vw,46px)/1 var(--display);margin:4px 0 0}
+.simtitle em{font-style:normal;color:var(--amber)}
+.simlede{margin:0;font-size:15px}
+.simstage{position:relative;width:100%;aspect-ratio:16/10;max-height:58vh;border-radius:18px;overflow:hidden;background:radial-gradient(120% 90% at 50% 20%,#18202b 0%,#0a0e13 70%);border:1px solid var(--line);touch-action:none}
+#simcv{width:100%;height:100%;display:block}
+.simbars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mbar{background:var(--panel-solid);border:1px solid var(--line);border-radius:14px;padding:10px 12px;min-width:0}
+.mbar .n{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.mbar .v{font:700 30px/1.05 var(--display);font-variant-numeric:tabular-nums}
+.mbar .s{font-size:12px;color:var(--muted)}
+.mbar .track{height:8px;border-radius:4px;background:rgba(255,255,255,.08);margin-top:6px;overflow:hidden}
+.mbar .fill{height:100%;border-radius:4px;transition:width .12s linear}
+.simsay{margin:0;font-size:16px;line-height:1.45;background:var(--panel-solid);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:12px;padding:10px 14px}
+.simctl{display:flex;flex-direction:column;gap:10px}
+.simgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.simgrid .field input[type=range]{width:100%}
+</style>
+
 <section id="reelview" class="view" hidden aria-labelledby="t-reel">
   <div class="reelwrap">
     <div class="reelhead"><span class="pill">FITNESS VLC</span><h2 id="t-reel">Reel para Instagram</h2></div>
@@ -616,8 +678,8 @@ let set = null;           // current set
 const filters = Array.from({length:33}, () => ({x:new OneEuro(), y:new OneEuro()}));
 
 /* ---------------- setup UI ---------------- */
-document.querySelectorAll(".ex").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll(".ex").forEach(x => x.setAttribute("aria-pressed", "false"));
+document.querySelectorAll(".ex:not(.sim)").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".ex:not(.sim)").forEach(x => x.setAttribute("aria-pressed", "false"));
   b.setAttribute("aria-pressed", "true"); st.ex = b.dataset.ex; $("#freeopts").hidden = st.ex !== "free"; $("#golfopts").hidden = st.ex !== "golf"; savePrefs();
 }));
 st.follow = "auto"; st.hand = "R";
@@ -645,7 +707,7 @@ function savePrefs() { store.set("vlc.prefs", {hand:st.hand, slowf:$("#slowf").v
 })();
 renderHistory();
 
-function show(id) { ["setup", "live", "summary", "reelview"].forEach(v => $("#" + v).hidden = v !== id); }
+function show(id) { ["setup", "live", "summary", "reelview", "simview"].forEach(v => $("#" + v).hidden = v !== id); }
 
 $("#start").addEventListener("click", () => { st.file = null; startSet(); });
 $("#filebtn").addEventListener("click", () => $("#file").click());
@@ -835,7 +897,7 @@ function loopBody() {
   if (!set.recTried && v.readyState >= 2 && cv.width > 300 && set.det > 3) startRecorder();
   set.fpsN = (set.fpsN || 0) + 1; const pn = performance.now(); if (!set.fpsT) set.fpsT = pn; if (pn - set.fpsT > 1000) { set.fps = Math.round(set.fpsN * 1000 / (pn - set.fpsT)); set.fpsN = 0; set.fpsT = pn; }
   if (set.lastErr) txt("Error: " + set.lastErr.slice(0, 80), U(22), view.H - U(40), `600 ${U(13)}px ${FB}`, C.red);
-  else txt(`v11 · ${set.fps || "–"} fps · ${set.recorder ? "grabando" : "sin grabar"}`, U(22), view.H - U(40), `500 ${U(11)}px ${FB}`, "rgba(255,255,255,.45)");
+  else txt(`v12 · ${set.fps || "–"} fps · ${set.recorder ? "grabando" : "sin grabar"}`, U(22), view.H - U(40), `500 ${U(11)}px ${FB}`, "rgba(255,255,255,.45)");
 }
 function copyToRec() {
   if (!recCtx) return;
@@ -2059,6 +2121,241 @@ if (qs.get("autostart")) {
     else $("#start").click();
   }, 300);
 }
+
+/* =====================================================================
+   SIMULADOR · HIP THRUST (modelo 2D estático)
+   Mundo en metros: x → hacia los pies (0 = borde del banco), y ↑ (0 = suelo).
+   Fuerzas externas: peso de la barra (en la cadera), pesos segmentarios,
+   reacción del banco en las escápulas (B) y del suelo en el talón (A).
+   Incógnitas By, Fy; la componente horizontal la decide la acción de los pies
+   (o vale 0 con suelo sin agarre / banco suelto).
+   ===================================================================== */
+const SIM = {theta:6, ax:0.92, load:60, bw:75, push:0, bench:0.42, ice:false, free:false, playing:false, t0:0};
+const g0 = 9.81, MU_FLOOR = 0.6, MU_BENCH = 0.5;
+function simGeom(theta, ax) {
+  const H = (st.height || 170) / 100;
+  const Lt = 0.245 * H, Ls = 0.246 * H, Ltor = 0.23 * H, ah = 0.039 * H;   // muslo, pierna, escápula→cadera, altura del tobillo
+  const B = {x:0, y:SIM.bench};
+  const th = theta * Math.PI / 180;
+  const Hp = {x:B.x + Ltor * Math.cos(th), y:B.y + Ltor * Math.sin(th)};
+  const minAx = Hp.x + 0.05, maxAx = Hp.x + Lt + Ls - 0.02;
+  ax = clamp(ax, minAx, maxAx);
+  const A = {x:ax, y:ah}, G = {x:ax, y:0};                       // tobillo y contacto del talón
+  // rodilla: intersección de circunferencias (cadera, Lt) y (tobillo, Ls), la de arriba
+  const dx = A.x - Hp.x, dy = A.y - Hp.y, d = Math.min(Math.hypot(dx, dy), Lt + Ls - 1e-4);
+  const a = (Lt * Lt - Ls * Ls + d * d) / (2 * d), h = Math.sqrt(Math.max(0, Lt * Lt - a * a));
+  const ux = dx / d, uy = dy / d, px = Hp.x + a * ux, py = Hp.y + a * uy;
+  let K = {x:px - h * uy, y:py + h * ux}; const K2 = {x:px + h * uy, y:py - h * ux}; if (K2.y > K.y) K = K2;
+  const S = {x:B.x - 0.07 * H * Math.cos(th), y:B.y - 0.07 * H * Math.sin(th) + 0.02};        // hombros, un poco más allá del contacto
+  return {H, Lt, Ls, Ltor, B, Hp, K, A, G, S, ax};
+}
+const ang = (a, b, c) => angle(a, b, c);
+function simSolve(theta, ax, pushFrac) {
+  const gm = simGeom(theta, ax), m = SIM.bw;
+  const W = [ // [peso N, punto]
+    [SIM.load * g0, gm.Hp],                                                      // barra sobre la cadera
+    [0.14 * m * g0, gm.Hp],                                                      // pelvis
+    [0.44 * m * g0, {x:gm.Hp.x + (gm.B.x - gm.Hp.x) * 0.8, y:gm.Hp.y + (gm.B.y - gm.Hp.y) * 0.8}], // tronco, cabeza y brazos (cerca del banco)
+    [0.20 * m * g0, {x:(gm.Hp.x + gm.K.x) / 2, y:(gm.Hp.y + gm.K.y) / 2}],      // muslos
+    [0.122 * m * g0, {x:(gm.K.x + gm.A.x) / 2, y:(gm.K.y + gm.A.y) / 2}]        // piernas y pies
+  ];
+  const Wtot = W.reduce((s, w) => s + w[0], 0);
+  // momentos respecto a B: Fy·(Gx−Bx) − Fx·(Gy−By) − Σ w·(xi−Bx) = 0
+  const sumW = W.reduce((s, [w, p]) => s + w * (p.x - gm.B.x), 0);
+  const noH = SIM.ice || SIM.free;
+  let Fy = sumW / (gm.G.x - gm.B.x), Fx = 0;
+  if (!noH) { // acción de los pies como fracción de la fuerza vertical (iteración corta: Fx depende de Fy)
+    for (let i = 0; i < 4; i++) { Fx = pushFrac * Fy; Fy = (sumW + Fx * (gm.G.y - gm.B.y)) / (gm.G.x - gm.B.x); }
+  }
+  const By = Wtot - Fy, Bx = -Fx;
+  // rodilla: momento externo sobre pierna+pie (GRF + peso de la pierna)
+  const cross = (r, f) => r.x * f.y - r.y * f.x;
+  const ws = W[4];
+  const MkExt = cross({x:gm.G.x - gm.K.x, y:gm.G.y - gm.K.y}, {x:Fx, y:Fy}) + cross({x:ws[1].x - gm.K.x, y:ws[1].y - gm.K.y}, {x:0, y:-ws[0]});
+  // cadera: momento externo sobre muslo+pierna+pie
+  const wt = W[3];
+  const MhExt = cross({x:gm.G.x - gm.Hp.x, y:gm.G.y - gm.Hp.y}, {x:Fx, y:Fy}) + cross({x:wt[1].x - gm.Hp.x, y:wt[1].y - gm.Hp.y}, {x:0, y:-wt[0]}) + cross({x:ws[1].x - gm.Hp.x, y:ws[1].y - gm.Hp.y}, {x:0, y:-ws[0]});
+  // signos: con y hacia arriba, un momento externo antihorario sobre la pierna abre la rodilla (lo frena el isquio)
+  // y sobre el muslo cierra la cadera (lo frena el extensor de cadera)
+  const kneeExtDemand = -MkExt;   // >0 cuádriceps, <0 isquios
+  const hipExtDemand = MhExt;     // >0 extensores de cadera
+  const deg = v => Math.atan2(v.y, v.x) * 180 / Math.PI;
+  const hip0 = ((deg({x:gm.B.x - gm.Hp.x, y:gm.B.y - gm.Hp.y}) - deg({x:gm.K.x - gm.Hp.x, y:gm.K.y - gm.Hp.y})) % 360 + 360) % 360;   // 180 = recta, >180 hiperextensión
+  const knee0 = ang(gm.Hp, gm.K, gm.A);
+  // reparto entre músculos (isquios: brazo de momento en cadera ≈ 1,6 veces el de rodilla)
+  const Mh = Math.max(0, hipExtDemand);
+  let quads = 0, hams = 0, glute = Mh;
+  if (kneeExtDemand >= 0) quads = kneeExtDemand;
+  else { hams = Math.min(Mh, -kneeExtDemand * 1.6); glute = Mh - hams; }
+  const shin = Math.atan2(gm.A.x - gm.K.x, gm.K.y - gm.A.y) * 180 / Math.PI;    // + = tobillo por delante de la rodilla
+  const warn = [];
+  if (Fy < 0) warn.push("Los pies se levantan del suelo");
+  if (!noH && Math.abs(Fx) > MU_FLOOR * Fy) warn.push("Con esa acción los pies resbalarían");
+  if (!noH && Math.abs(Bx) > MU_BENCH * Math.max(1, By)) warn.push("La espalda resbalaría sobre el banco");
+  if (SIM.free && Math.abs(SIM.push) > 0) warn.push("Con el banco suelto no puedes empujar ni tirar con los pies: el banco se desplaza");
+  return {gm, Fx, Fy, Bx, By, Mh, quads, hams, glute, kneeExtDemand, hipAng:hip0, kneeAng:knee0, shin, warn, Wtot};
+}
+
+const sc = {cv:null, g:null, s:1, ox:0, oy:0, W:0, H:0, drag:null};
+function simFit() {
+  const c = sc.cv, dpr = Math.min(window.devicePixelRatio || 1, 2), W = Math.round(c.clientWidth * dpr), H = Math.round(c.clientHeight * dpr);
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  // mundo visible: x de −0,75 a 1,45 m, y de −0,05 a 1,1 m
+  const wx0 = -0.75, wx1 = 1.45, wy0 = -0.3, wy1 = 1.1;
+  sc.s = Math.min(W / (wx1 - wx0), H / (wy1 - wy0)); sc.W = W; sc.H = H;
+  sc.ox = (W - (wx1 - wx0) * sc.s) / 2 - wx0 * sc.s; sc.oy = H - ((H - (wy1 - wy0) * sc.s) / 2) + wy0 * sc.s;
+}
+const wX = x => sc.ox + x * sc.s, wY = y => sc.oy - y * sc.s;
+const toWorld = (px, py) => ({x:(px - sc.ox) / sc.s, y:(sc.oy - py) / sc.s});
+function hexA2(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+const MC = {glute:"#ff3b8a", hams:"#9b6bff", quads:"#3ddc84"};
+
+function simDraw() {
+  const g = sc.g, r = simSolve(SIM.theta, SIM.ax, SIM.push / 100), gm = r.gm, u = Math.max(sc.s / 400, Math.min(window.devicePixelRatio || 1, 2) * 0.9);   // u ≈ 1px a escala media
+  g.clearRect(0, 0, sc.W, sc.H);
+  // suelo y banco
+  g.fillStyle = "rgba(255,255,255,.05)"; g.fillRect(0, wY(0), sc.W, sc.H - wY(0));
+  g.strokeStyle = SIM.ice ? "#7fd6ff" : "rgba(255,255,255,.35)"; g.lineWidth = 3 * u; g.beginPath(); g.moveTo(0, wY(0)); g.lineTo(sc.W, wY(0)); g.stroke();
+  if (SIM.ice) { g.fillStyle = "rgba(127,214,255,.18)"; g.fillRect(wX(gm.G.x - 0.18), wY(0.012), 0.36 * sc.s, 0.012 * sc.s); }
+  const bt = SIM.bench - 0.075;   // la espalda (radio de la cápsula) apoya encima del tablero
+  g.fillStyle = "#2a3340"; g.beginPath(); g.roundRect ? g.roundRect(wX(-0.62), wY(bt), 0.64 * sc.s, 0.07 * sc.s, 10 * u) : g.rect(wX(-0.62), wY(bt), 0.64 * sc.s, 0.07 * sc.s); g.fill();
+  g.fillStyle = "#1c232d"; g.fillRect(wX(-0.36), wY(bt - 0.07), 0.05 * sc.s, (bt - 0.07) * sc.s); g.fillRect(wX(-0.5), wY(0.03), 0.34 * sc.s, 0.03 * sc.s);
+  if (!SIM.free) { g.fillStyle = "rgba(255,176,32,.9)"; g.fillRect(wX(-0.56), wY(0.03), 0.05 * sc.s, 0.03 * sc.s); }
+  // barra y disco sobre la cadera
+  const plate = {x:gm.Hp.x, y:gm.Hp.y + 0.1}; sc.plate = plate;
+  g.beginPath(); g.arc(wX(plate.x), wY(plate.y), 0.225 * sc.s, 0, 7); g.fillStyle = "#1a212b"; g.fill(); g.strokeStyle = "rgba(255,255,255,.22)"; g.lineWidth = 3 * u; g.stroke();
+  g.beginPath(); g.arc(wX(plate.x), wY(plate.y), 0.16 * sc.s, 0, 7); g.strokeStyle = "rgba(255,255,255,.08)"; g.stroke();
+  g.fillStyle = "#c9ced6"; g.beginPath(); g.arc(wX(plate.x), wY(plate.y), 0.025 * sc.s, 0, 7); g.fill();
+  // cuerpo (cápsulas grises)
+  const cap = (a, b, w, col) => { g.strokeStyle = col; g.lineWidth = w * sc.s; g.lineCap = "round"; g.beginPath(); g.moveTo(wX(a.x), wY(a.y)); g.lineTo(wX(b.x), wY(b.y)); g.stroke(); };
+  const body = "#4a5563";
+  const headC = {x:gm.S.x - 0.12, y:gm.S.y + 0.1};
+  cap(gm.S, gm.Hp, 0.15, body); cap(gm.Hp, gm.K, 0.12, body); cap(gm.K, gm.A, 0.085, body); cap(gm.A, {x:gm.A.x + 0.17, y:0.03}, 0.06, body);
+  g.fillStyle = body; g.beginPath(); g.arc(wX(headC.x), wY(headC.y), 0.1 * sc.s, 0, 7); g.fill();
+  // músculos (intensidad según su parte del esfuerzo)
+  const maxM = Math.max(120, r.glute + r.hams + r.quads);
+  const tight = v => clamp(v / maxM, 0, 1);
+  const thighV = {x:gm.K.x - gm.Hp.x, y:gm.K.y - gm.Hp.y}, tl = Math.hypot(thighV.x, thighV.y), tn = {x:-thighV.y / tl, y:thighV.x / tl};   // normal "arriba" del muslo
+  const blob = (c, rot, a, b, col, k) => { if (k < 0.02) return; g.save(); g.translate(wX(c.x), wY(c.y)); g.rotate(-rot); g.scale(a * sc.s, b * sc.s); const gr = g.createRadialGradient(0, 0, 0, 0, 0, 1); gr.addColorStop(0, hexA2(col, 0.25 + 0.7 * k)); gr.addColorStop(0.7, hexA2(col, 0.15 + 0.55 * k)); gr.addColorStop(1, hexA2(col, 0)); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 1, 0, 7); g.fill(); g.restore(); };
+  const thRot = Math.atan2(thighV.y, thighV.x);
+  blob({x:gm.Hp.x + (gm.K.x - gm.Hp.x) * 0.5 + tn.x * 0.035, y:gm.Hp.y + (gm.K.y - gm.Hp.y) * 0.5 + tn.y * 0.035}, thRot, tl * 0.42, 0.05, MC.quads, tight(r.quads));
+  blob({x:gm.Hp.x + (gm.K.x - gm.Hp.x) * 0.5 - tn.x * 0.035, y:gm.Hp.y + (gm.K.y - gm.Hp.y) * 0.5 - tn.y * 0.035}, thRot, tl * 0.42, 0.045, MC.hams, tight(r.hams));
+  blob({x:gm.Hp.x - tn.x * 0.06 - thighV.x / tl * 0.02, y:gm.Hp.y - tn.y * 0.06 - thighV.y / tl * 0.02}, thRot, 0.1, 0.075, MC.glute, tight(r.glute));
+  // articulaciones
+  for (const p of [gm.S, gm.Hp, gm.K, gm.A]) { g.fillStyle = "#fff"; g.beginPath(); g.arc(wX(p.x), wY(p.y), 5 * u, 0, 7); g.fill(); }
+  // línea de la espinilla y vertical de referencia por la rodilla
+  g.setLineDash([6 * u, 6 * u]); g.strokeStyle = "rgba(255,255,255,.5)"; g.lineWidth = 2 * u; g.beginPath(); g.moveTo(wX(gm.K.x), wY(gm.K.y + 0.08)); g.lineTo(wX(gm.K.x), wY(0)); g.stroke(); g.setLineDash([]);
+  // fuerzas: suelo (naranja) y banco (azul)
+  const arrow = (p, f, col, label) => {
+    const mag = Math.hypot(f.x, f.y) || 1, L = 0.06 + 0.16 * clamp(mag / r.Wtot, 0, 1), k = L / mag;
+    const x1 = wX(p.x), y1 = wY(p.y), x0 = wX(p.x - f.x * k), y0 = wY(p.y - f.y * k);
+    g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 5 * u; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+    const a = Math.atan2(y1 - y0, x1 - x0); g.beginPath(); g.moveTo(x1, y1); g.lineTo(x1 - 14 * u * Math.cos(a - 0.45), y1 - 14 * u * Math.sin(a - 0.45)); g.lineTo(x1 - 14 * u * Math.cos(a + 0.45), y1 - 14 * u * Math.sin(a + 0.45)); g.closePath(); g.fill();
+    g.font = `700 ${13 * u * 1.2}px ${FB}`; g.textAlign = "center"; g.fillText(label, x0, y0 + (f.y > 0 ? 20 : -8) * u);
+  };
+  arrow(gm.G, {x:r.Fx, y:r.Fy}, "#ff8a3d", `Suelo ${Math.round(r.Fy / g0)} kg`);
+  arrow({x:gm.B.x, y:SIM.bench - 0.075}, {x:r.Bx, y:r.By}, "#3d8bff", `Banco ${Math.round(r.By / g0)} kg`);
+  // tiradores
+  const handle = (p, txt, col, active) => { const x = wX(p.x), y = wY(p.y); g.fillStyle = active ? col : "rgba(0,0,0,.6)"; g.strokeStyle = col; g.lineWidth = 3 * u; g.beginPath(); g.arc(x, y, 17 * u, 0, 7); g.fill(); g.stroke(); g.fillStyle = active ? "#0a0e13" : col; g.font = `700 ${16 * u}px ${FB}`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, x, y + 1); g.textBaseline = "alphabetic"; };
+  handle({x:sc.plate.x, y:sc.plate.y + 0.3}, "↕", "#ffb020", sc.drag === "hip");
+  handle({x:gm.A.x + 0.25, y:0.05}, "↔", "#ffb020", sc.drag === "feet");
+  // lecturas sobre la figura
+  g.font = `600 ${13 * u * 1.15}px ${FB}`; g.fillStyle = "rgba(238,242,246,.9)"; g.textAlign = "left";
+  g.fillText(`Cadera ${Math.round(r.hipAng)}°`, wX(gm.Hp.x) - 30 * u, wY(gm.Hp.y) + 34 * u);
+  g.fillText(`Rodilla ${Math.round(r.kneeAng)}°`, wX(gm.K.x) + 14 * u, wY(gm.K.y) - 12 * u);
+  g.fillText(`Espinilla ${r.shin >= 0 ? "+" : "−"}${Math.abs(Math.round(r.shin))}°`, wX(gm.K.x) + 14 * u, wY(gm.K.y) + 8 * u);
+  if (r.hipAng > 190) { g.fillStyle = "#ff4d4d"; g.font = `700 ${15 * u * 1.2}px ${FB}`; g.fillText("⚠ Por encima de aquí extiendes la zona lumbar", wX(-0.7), wY(1.04)); }
+  return r;
+}
+function simUI(r) {
+  const tot = r.glute + r.hams + r.quads || 1, pc = v => Math.round(v / tot * 100);
+  const bar = (n, v, col, sub) => `<div class="mbar"><div class="n" style="color:${col}">${n}</div><div class="v">${pc(v)} %</div><div class="s">${Math.round(v)} N·m ${sub}</div><div class="track"><div class="fill" style="width:${pc(v)}%;background:${col}"></div></div></div>`;
+  $("#simbars").innerHTML = bar("Glúteo", r.glute, MC.glute, "· cadera") + bar("Isquios", r.hams, MC.hams, "· cadera/rodilla") + bar("Cuádriceps", r.quads, MC.quads, "· rodilla");
+  let msg;
+  const top = r.hipAng > 165, shin = r.shin;
+  if (r.warn.length) msg = `<b>⚠ ${r.warn[0]}.</b> `; else msg = "";
+  if (r.quads > 0.25 * tot) msg += `<b>Pies demasiado cerca (rodilla ${Math.round(Math.abs(shin))}° más allá del tobillo):</b> la fuerza del suelo pasa por detrás de la rodilla y el cuádriceps tiene que extenderla. Aleja un poco los pies si buscas glúteo.`;
+  else if (r.hams > 0.25 * tot) msg += `<b>Pies lejos o tirando de los talones:</b> el suelo empuja por delante de la rodilla y los isquios trabajan para no dejar que se estire. Acerca los pies si quieres quitarles trabajo.`;
+  else msg += `<b>${top ? "Espinilla casi vertical arriba" : "Pies bien colocados"}:</b> la fuerza del suelo pasa cerca de la rodilla, así que la rodilla apenas trabaja y casi todo el esfuerzo es de extensión de cadera: <b>glúteo</b>.`;
+  if (SIM.ice || SIM.free) msg += ` ${SIM.ice ? "En suelo sin agarre" : "Con el banco suelto"} la fuerza de los pies solo puede ser vertical: lo único que decide el reparto es dónde pones los pies.`;
+  else if (SIM.push > 0) msg += " Tirar de los talones hacia ti suma isquios.";
+  else if (SIM.push < 0) msg += " Empujar el suelo lejos suma cuádriceps.";
+  $("#simsay").innerHTML = msg;
+  $("#simpushv").textContent = SIM.push === 0 ? "neutra" : SIM.push > 0 ? `tirar de talones (${SIM.push} %)` : `empujar lejos (${-SIM.push} %)`;
+  $("#simpush").disabled = SIM.ice || SIM.free;
+}
+function simCurve() {
+  const Wd = 900, Hd = 200, pl = 46, pr = 14, pt = 14, pb = 30, ths = [];
+  for (let th = -30; th <= 10; th += 1) ths.push(th);
+  const rs = ths.map(th => simSolve(th, SIM.ax, SIM.push / 100));
+  const mx = Math.max(...rs.map(r => r.glute + r.hams + r.quads), 50) * 1.08;
+  const x = i => pl + (Wd - pl - pr) * i / (ths.length - 1), y = v => pt + (Hd - pt - pb) * (1 - v / mx);
+  const path = key => rs.map((r, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(r[key]).toFixed(1)).join("");
+  const ci = ths.findIndex(t => t >= SIM.theta);
+  let s = `<svg class="chart" viewBox="0 0 ${Wd} ${Hd}" role="img" aria-label="Esfuerzo de cada músculo a lo largo del recorrido">`;
+  [0, 0.5, 1].forEach(f => { const v = mx / 1.08 * f; s += `<line x1="${pl}" x2="${Wd - pr}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(255,255,255,.08)"/><text x="${pl - 6}" y="${y(v) + 4}" fill="${C.muted}" font-size="12" text-anchor="end" font-family="Barlow">${Math.round(v)}</text>`; });
+  for (const [k, col] of [["glute", MC.glute], ["hams", MC.hams], ["quads", MC.quads]]) s += `<path d="${path(k)}" fill="none" stroke="${col}" stroke-width="3"/>`;
+  if (ci >= 0) s += `<line x1="${x(ci)}" x2="${x(ci)}" y1="${pt}" y2="${Hd - pb}" stroke="#fff" stroke-dasharray="4 4"/>`;
+  s += `<text x="${pl}" y="${Hd - 8}" fill="${C.muted}" font-size="12" font-family="Barlow">abajo (cadera cerca del suelo)</text><text x="${Wd - pr}" y="${Hd - 8}" fill="${C.muted}" font-size="12" text-anchor="end" font-family="Barlow">arriba (bloqueo) · N·m</text>`;
+  $("#simcurve").innerHTML = s + "</svg>";
+}
+function simRender() { if ($("#simview").hidden) return; simFit(); const r = simDraw(); simUI(r); }
+let simCurveT = 0;
+function simRefresh(full) { simRender(); if (full || performance.now() - simCurveT > 120) { simCurveT = performance.now(); simCurve(); } }
+function simPreset(p) {
+  // coloca los pies para que a la altura de bloqueo la espinilla quede inclinada/vertical
+  const thTop = 4, gmTop = simGeom(thTop, 1);
+  const target = {near:-14, vert:0, far:18}[p];
+  let best = SIM.ax, bd = 1e9;
+  for (let ax = gmTop.Hp.x + 0.1; ax < gmTop.Hp.x + gmTop.Lt + gmTop.Ls - 0.03; ax += 0.005) { const r = simSolve(thTop, ax, 0); const dd = Math.abs(r.shin - target); if (dd < bd) { bd = dd; best = ax; } }
+  SIM.ax = best; SIM.theta = thTop;
+  document.querySelectorAll("#simview .chip[data-p]").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.p === p)));
+  simRefresh(true);
+}
+function simOpen() {
+  show("simview"); $("#simview").scrollTop = 0;
+  if (!sc.cv) {
+    sc.cv = $("#simcv"); sc.g = sc.cv.getContext("2d");
+    const pick = e => { const rc = sc.cv.getBoundingClientRect(), dpr = sc.cv.width / rc.width; return {px:(e.clientX - rc.left) * dpr, py:(e.clientY - rc.top) * dpr}; };
+    sc.cv.addEventListener("pointerdown", e => {
+      const {px, py} = pick(e), gm = simGeom(SIM.theta, SIM.ax);
+      const dH = Math.hypot(px - wX(gm.Hp.x), py - wY(gm.Hp.y + 0.15)), dF = Math.hypot(px - wX(gm.A.x + 0.15), py - wY(0.04));
+      sc.drag = dF < dH ? "feet" : "hip"; SIM.playing = false; sc.cv.setPointerCapture(e.pointerId); simMove(px, py);
+    });
+    const simMove = (px, py) => {
+      const w = toWorld(px, py), gm = simGeom(SIM.theta, SIM.ax);
+      if (sc.drag === "hip") { const yH = clamp(w.y - 0.25, 0.08, SIM.bench + gm.Ltor * Math.sin(14 * Math.PI / 180)); SIM.theta = clamp(Math.asin(clamp((yH - SIM.bench) / gm.Ltor, -1, 1)) * 180 / Math.PI, -40, 14); }
+      else if (sc.drag === "feet") SIM.ax = w.x - 0.25;
+      document.querySelectorAll("#simview .chip[data-p]").forEach(c => c.setAttribute("aria-pressed", "false"));
+      simRefresh(sc.drag === "feet");
+    };
+    sc.cv.addEventListener("pointermove", e => { if (!sc.drag) return; const {px, py} = pick(e); simMove(px, py); });
+    const up = () => { sc.drag = null; simRefresh(true); };
+    sc.cv.addEventListener("pointerup", up); sc.cv.addEventListener("pointercancel", up);
+    const bind = (id, key, f, lab, fmtv) => $(id).addEventListener("input", e => { SIM[key] = f(+e.target.value); if (lab) $(lab).textContent = fmtv ? fmtv(+e.target.value) : e.target.value; simRefresh(true); });
+    bind("#simload", "load", v => v, "#simloadv"); bind("#simbw", "bw", v => v, "#simbwv"); bind("#simpush", "push", v => v); bind("#simbench", "bench", v => v / 100, "#simbenchv");
+    $("#simice").addEventListener("change", e => { SIM.ice = e.target.checked; simRefresh(true); });
+    $("#simfree").addEventListener("change", e => { SIM.free = e.target.checked; simRefresh(true); });
+    document.querySelectorAll("#simview .chip[data-p]").forEach(c => c.addEventListener("click", () => simPreset(c.dataset.p)));
+    $("#simplay").addEventListener("click", () => { SIM.playing = !SIM.playing; $("#simplay").textContent = SIM.playing ? "❚❚ Parar" : "▶ Repetición"; SIM.t0 = performance.now(); if (SIM.playing) simAnim(); });
+    $("#simback").addEventListener("click", () => { SIM.playing = false; show("setup"); });
+    window.addEventListener("resize", () => simRefresh(true));
+    SIM.bw = Math.round(+$("#simbw").value); $("#simbwv").textContent = SIM.bw;
+    simPreset("vert");
+  }
+  simRefresh(true);
+}
+function simAnim() {
+  if (!SIM.playing || $("#simview").hidden) { $("#simplay").textContent = "▶ Repetición"; return; }
+  const t = (performance.now() - SIM.t0) / 1000, ph = (t % 2.6) / 2.6;     // 1,1 s subida, pausa, 1,1 s bajada
+  const e = ph < 0.42 ? ph / 0.42 : ph < 0.55 ? 1 : ph < 0.97 ? 1 - (ph - 0.55) / 0.42 : 0;
+  SIM.theta = -30 + 34 * (0.5 - 0.5 * Math.cos(Math.PI * e));
+  simRender(); requestAnimationFrame(simAnim);
+}
+window.__sim = {SIM, simSolve, simGeom, simOpen, simPreset};
+
+$("#opensim").addEventListener("click", () => simOpen());
+if (new URLSearchParams(location.search).get("sim")) simOpen();
 </script>
 </body>
 </html>
