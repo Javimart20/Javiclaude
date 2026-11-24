@@ -188,6 +188,8 @@ function leerHash() {
 function pintarRegalo(datos) {
   const items = datos.ids.map((id) => PORID.get(id));
   const t = items.filter((i) => i.precio).reduce((s, i) => s + i.precio, 0);
+  const pueblo = (document.querySelector('.pueblo') || {}).outerHTML || '';
+  const nevado = (document.querySelector('.nevado') || {}).outerHTML || '';
   document.body.innerHTML = `
     <div class="regalo">
       <div class="corona">🎄</div>
@@ -195,6 +197,7 @@ function pintarRegalo(datos) {
       <p class="sub">Querido Papá Noel, queridos Reyes: esto es lo que le gustaría encontrar este año.<br>
         ${items.length} ${items.length === 1 ? 'regalo elegido' : 'regalos elegidos'} en Tania Centro Estético ·
         se reserva por WhatsApp en un minuto</p>
+      ${pueblo}${nevado}
     </div>
     <div class="lista" id="lista"></div>
     <div class="total"><span>Total aproximado</span><b id="rtot"></b></div>
