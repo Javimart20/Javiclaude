@@ -1,0 +1,294 @@
+/* Carta de Navidad · Tania Centro Estético — Navidad clásica: noche de pino, rojo y nieve */
+:root{
+  --pino:#123528; --pino2:#1b4a37; --pino3:#0b2119; --pino-claro:#2f6b4f;
+  --rojo:#b3202d; --rojo2:#d63b47; --rojo3:#7a1420;
+  --oro:#d8b25c; --oro2:#f1dca0; --oro3:#a37f2c;
+  --nieve:#faf6ee; --nieve2:#ffffff; --crema:#f2e9d8; --kraft:#e8dcc4;
+  --tinta:#1f2a24; --dim:#6c7069;
+  --display:"Fraunces",Georgia,serif;
+  --script:"Pinyon Script","Snell Roundhand",cursive;
+  --sans:"Jost",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --sh:0 1px 2px rgba(18,53,40,.07), 0 10px 24px rgba(18,53,40,.10);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  margin:0;padding:0 0 108px;color:var(--tinta);font-family:var(--sans);font-weight:400;line-height:1.55;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(18,53,40,.07) 1px, transparent 1.5px) 0 0/22px 22px,
+    var(--nieve);
+}
+::selection{background:var(--rojo);color:#fff}
+h1,h2,h3{margin:0}
+a{color:inherit}
+
+/* ---------- portada: noche de Navidad ---------- */
+.portada{
+  position:relative;overflow:hidden;padding:58px 16px 120px;text-align:center;color:#fff;
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 30%, rgba(241,220,160,.16), transparent 70%),
+    radial-gradient(circle at 85% 12%, rgba(255,255,255,.08), transparent 30%),
+    linear-gradient(180deg, var(--pino3) 0%, var(--pino) 55%, var(--pino2) 100%);
+}
+.portada::before{ /* estrellas */
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.7;
+  background-image:
+    radial-gradient(1.4px 1.4px at 8% 18%, #fff 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 22% 42%, #fff 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 76% 22%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 64% 9%, #fff 50%, transparent 51%),
+    radial-gradient(1.3px 1.3px at 91% 46%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 38% 14%, #fff 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 52% 58%, #fff 50%, transparent 51%);
+  animation:titilar 5s ease-in-out infinite;
+}
+@keyframes titilar{0%,100%{opacity:.35}50%{opacity:.85}}
+
+/* guirnalda de luces */
+.guirnalda{position:absolute;top:0;left:-2%;right:-2%;height:46px;display:flex;justify-content:space-between;
+  padding:0 2%;pointer-events:none;z-index:2}
+.guirnalda::before{content:"";position:absolute;left:0;right:0;top:-30px;height:58px;border-radius:0 0 50% 50%/0 0 100% 100%;
+  border-bottom:2px solid rgba(0,0,0,.45)}
+.guirnalda i{position:relative;width:10px;height:15px;border-radius:50% 50% 50% 50%/40% 40% 60% 60%;
+  background:var(--c,#f4c542);box-shadow:0 0 10px 2px var(--c,#f4c542);animation:luz 2.4s ease-in-out infinite;
+  margin-top:calc(var(--y,10px))}
+.guirnalda i::before{content:"";position:absolute;top:-4px;left:2px;width:6px;height:5px;border-radius:1px;background:#28302c}
+.guirnalda i:nth-child(4n+1){--c:#ff4b55}
+.guirnalda i:nth-child(4n+2){--c:#f8cf4e;animation-delay:.6s}
+.guirnalda i:nth-child(4n+3){--c:#5fd38a;animation-delay:1.2s}
+.guirnalda i:nth-child(4n){--c:#79b8ff;animation-delay:1.8s}
+.guirnalda i:nth-child(1),.guirnalda i:nth-child(14){--y:2px}
+.guirnalda i:nth-child(2),.guirnalda i:nth-child(13){--y:9px}
+.guirnalda i:nth-child(3),.guirnalda i:nth-child(12){--y:15px}
+.guirnalda i:nth-child(4),.guirnalda i:nth-child(11){--y:20px}
+.guirnalda i:nth-child(5),.guirnalda i:nth-child(10){--y:24px}
+.guirnalda i:nth-child(6),.guirnalda i:nth-child(9){--y:26px}
+.guirnalda i:nth-child(7),.guirnalda i:nth-child(8){--y:27px}
+@keyframes luz{0%,100%{opacity:1;filter:brightness(1.1)}50%{opacity:.45;filter:brightness(.7)}}
+
+.portada-in{position:relative;z-index:3;max-width:560px;margin:0 auto}
+
+/* logo dentro de una corona de pino */
+.corona-navidad{position:relative;width:150px;height:150px;margin:0 auto 16px;display:grid;place-items:center;border-radius:50%}
+.corona-navidad::before{ /* aro de ramas: varias capas de agujas */
+  content:"";position:absolute;inset:-4px;border-radius:50%;
+  background:
+    repeating-conic-gradient(from 3deg, rgba(74,150,104,.9) 0 2deg, transparent 2deg 7deg),
+    repeating-conic-gradient(from 0deg, #2c7550 0 3deg, transparent 3deg 11deg),
+    repeating-conic-gradient(from 5deg, #1a5038 0 4deg, #22603f 4deg 9deg, #133f2c 9deg 13deg);
+  -webkit-mask:radial-gradient(circle, transparent 51px, #000 56px, #000 72px, transparent 79px);
+          mask:radial-gradient(circle, transparent 51px, #000 56px, #000 72px, transparent 79px);
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.45));
+}
+.corona-navidad::after{ /* bayas */
+  content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 6%, var(--rojo2) 4px, transparent 5px),
+    radial-gradient(circle at 86% 26%, var(--rojo2) 4px, transparent 5px),
+    radial-gradient(circle at 92% 64%, var(--rojo2) 4px, transparent 5px),
+    radial-gradient(circle at 14% 26%, var(--rojo2) 4px, transparent 5px),
+    radial-gradient(circle at 8% 64%, var(--rojo2) 4px, transparent 5px),
+    radial-gradient(circle at 30% 90%, var(--oro2) 3px, transparent 4px),
+    radial-gradient(circle at 70% 90%, var(--oro2) 3px, transparent 4px);
+}
+.escudo{position:relative;z-index:1;width:96px;height:96px;border-radius:50%;background:#fff;display:block;
+  box-shadow:0 0 0 3px var(--oro), 0 6px 18px rgba(0,0,0,.35)}
+.lazo{position:absolute;z-index:2;bottom:-8px;left:50%;width:56px;height:30px;transform:translateX(-50%)}
+.lazo::before,.lazo::after{content:"";position:absolute;top:2px;width:26px;height:22px;background:linear-gradient(160deg,var(--rojo2),var(--rojo3));
+  border-radius:50% 10% 50% 50%;box-shadow:0 3px 6px rgba(0,0,0,.3)}
+.lazo::before{left:0;transform:rotate(-12deg)}
+.lazo::after{right:0;transform:scaleX(-1) rotate(-12deg)}
+
+.sobre{font-size:11px;font-weight:500;letter-spacing:.32em;text-transform:uppercase;color:var(--oro2);margin:0 0 10px;opacity:.9}
+.portada h1{font-family:var(--display);font-weight:600;font-size:clamp(30px,8.6vw,46px);line-height:1;letter-spacing:-.01em;color:#fff}
+.portada h1 .script{display:block;font-family:var(--script);font-weight:400;font-size:clamp(66px,21vw,116px);line-height:.95;
+  color:var(--oro2);margin-top:2px;text-shadow:0 2px 0 var(--rojo3), 0 0 26px rgba(241,220,160,.35)}
+.bajada{font-size:14.5px;color:rgba(255,255,255,.82);margin:14px auto 18px;line-height:1.6;max-width:400px;text-wrap:balance}
+.cuenta{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#fff;
+  background:var(--rojo);border-radius:99px;padding:8px 16px 8px 12px;margin:0 0 20px;
+  box-shadow:0 0 0 3px rgba(255,255,255,.12), 0 8px 18px rgba(0,0,0,.25)}
+.cuenta::before{content:"🎄";font-size:14px;letter-spacing:0}
+.cuenta:empty{display:none}
+.portada-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.ficha{margin:16px 0 0;font-size:12.5px;color:rgba(255,255,255,.7);min-height:18px}
+
+.arbolitos{position:absolute;left:0;right:0;bottom:34px;width:100%;height:90px;z-index:1;display:block}
+.nevado{position:absolute;left:0;right:0;bottom:-1px;width:100%;height:56px;z-index:2;display:block}
+
+/* nieve */
+.nieve{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:2}
+.nieve i{position:absolute;top:-8px;border-radius:50%;background:#fff;
+  animation-name:caer, vaiven;animation-timing-function:linear, ease-in-out;animation-iteration-count:infinite, infinite;
+  animation-direction:normal, alternate}
+@keyframes caer{to{top:100%}}
+@keyframes vaiven{from{transform:translateX(-14px)}to{transform:translateX(14px)}}
+
+/* ---------- botones ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;
+  padding:12px 22px;border-radius:99px;border:0;
+  background:linear-gradient(180deg,var(--rojo2),var(--rojo));color:#fff;
+  font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  cursor:pointer;text-decoration:none;transition:transform .16s, box-shadow .16s, filter .16s;
+  box-shadow:0 6px 16px rgba(122,20,32,.35), inset 0 1px 0 rgba(255,255,255,.25)}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 22px rgba(122,20,32,.4), inset 0 1px 0 rgba(255,255,255,.25)}
+.btn.ghost{background:transparent;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55);font-weight:500}
+.btn.ghost:hover{background:rgba(255,255,255,.08)}
+.modal .btn.ghost,.regalo-btns .btn.ghost{color:var(--pino);box-shadow:inset 0 0 0 1.5px rgba(18,53,40,.35)}
+.modal .btn.ghost:hover,.regalo-btns .btn.ghost:hover{background:rgba(18,53,40,.05)}
+
+/* ---------- índice de apartados ---------- */
+#chips{position:sticky;top:0;z-index:15;display:flex;gap:8px;overflow-x:auto;padding:11px 14px;
+  background:rgba(250,246,238,.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-bottom:1px solid rgba(18,53,40,.12);box-shadow:0 4px 14px rgba(18,53,40,.06);scrollbar-width:none}
+#chips::-webkit-scrollbar{display:none}
+#chips a{flex:none;text-decoration:none;font-size:12.5px;font-weight:500;color:var(--pino);background:#fff;
+  border:1px solid rgba(18,53,40,.18);border-radius:99px;padding:7px 14px;white-space:nowrap;transition:background .15s,color .15s}
+#chips a.activa{background:var(--pino);border-color:var(--pino);color:#fff}
+
+/* ---------- apartados ---------- */
+main{max-width:1040px;margin:0 auto;padding:6px 14px 20px}
+.cat{padding:38px 0 6px}
+.cat-head{text-align:center;padding:0 6px 6px}
+.cat-head .num{display:inline-block;position:relative;font-size:10.5px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;
+  color:#fff;background:var(--rojo);padding:5px 16px;margin-bottom:12px}
+.cat-head .num::before,.cat-head .num::after{content:"";position:absolute;top:0;width:12px;height:100%;background:var(--rojo3)}
+.cat-head .num::before{left:-10px;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,40% 50%)}
+.cat-head .num::after{right:-10px;clip-path:polygon(0 0,100% 0,60% 50%,100% 100%,0 100%)}
+.cat-head h2{font-family:var(--display);font-weight:600;font-size:clamp(24px,6.6vw,34px);line-height:1.12;color:var(--pino)}
+.cat-head p{margin:6px 0 0;font-size:13.5px;color:var(--dim);font-family:var(--display);font-style:italic}
+.cat-head::after{content:"❄";display:block;margin-top:10px;color:var(--oro3);font-size:13px;letter-spacing:.6em}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:22px 14px;padding-top:26px}
+
+/* ---------- tarjeta: etiqueta de regalo colgada ---------- */
+.card{position:relative;background:#fff;border-radius:14px;box-shadow:var(--sh);display:flex;flex-direction:column;
+  padding:8px 8px 0;transition:transform .2s, box-shadow .2s;transform-origin:50% -12px}
+.card::before{ /* agujero de la etiqueta */
+  content:"";position:absolute;top:-7px;left:50%;width:14px;height:14px;transform:translateX(-50%);border-radius:50%;
+  background:var(--nieve);box-shadow:inset 0 0 0 2px var(--oro), 0 1px 2px rgba(0,0,0,.1);z-index:2}
+.card::after{ /* cordel */
+  content:"";position:absolute;top:-20px;left:50%;width:1.5px;height:16px;background:var(--rojo);transform:translateX(-50%);z-index:1}
+@media (hover:hover){
+  .card:hover{transform:rotate(-1.2deg) translateY(-2px);box-shadow:0 16px 30px rgba(18,53,40,.16)}
+  .card:nth-child(even):hover{transform:rotate(1.2deg) translateY(-2px)}
+}
+.card .foto{position:relative;aspect-ratio:4/3;background:var(--crema);border-radius:9px;overflow:hidden}
+.card .foto img{width:100%;height:100%;object-fit:cover;display:block}
+.card .dur{position:absolute;left:8px;bottom:8px;background:rgba(255,255,255,.94);color:var(--pino);
+  border-radius:99px;font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:3px 9px}
+.card .dur::before{content:"⏱ ";font-size:9.5px}
+.card .promo{position:absolute;right:8px;top:8px;background:var(--rojo);color:#fff;
+  font-size:10px;font-weight:700;letter-spacing:.14em;padding:4px 9px;border-radius:4px;
+  box-shadow:0 3px 8px rgba(0,0,0,.22)}
+.card .promo::before{content:"★ "}
+.card .cuerpo{padding:11px 6px 12px;display:flex;flex-direction:column;flex:1}
+.card h3{font-family:var(--display);font-size:15.5px;font-weight:600;line-height:1.22;margin-bottom:5px;color:var(--pino3)}
+.card .desc{font-size:12.5px;color:var(--dim);line-height:1.42;margin:0 0 12px;max-height:2.84em;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .pie{margin-top:auto;display:flex;align-items:center;gap:7px;border-top:1.5px dashed rgba(18,53,40,.15);padding-top:10px}
+.card .precio{font-family:var(--display);font-size:23px;font-weight:800;line-height:1;color:var(--rojo)}
+.card .antes{font-size:12px;color:var(--dim);text-decoration:line-through}
+.card .consultar{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--pino-claro)}
+
+/* corazón → bola del árbol */
+.card .corazon{position:relative;margin-left:auto;width:38px;height:38px;border-radius:50%;flex:none;
+  border:1.5px solid rgba(18,53,40,.25);background:radial-gradient(circle at 35% 30%, #fff, #eef1ed);
+  color:var(--pino-claro);font-size:15px;cursor:pointer;display:grid;place-items:center;
+  transition:transform .18s, background .18s, color .18s, border-color .18s}
+.card .corazon::before{content:"";position:absolute;top:-6px;left:50%;width:10px;height:6px;transform:translateX(-50%);
+  border-radius:2px 2px 1px 1px;background:linear-gradient(90deg,var(--oro3),var(--oro2),var(--oro3))}
+@media (hover:hover){.card .corazon:hover{transform:scale(1.08) rotate(-6deg)}}
+.card.elegida{box-shadow:0 0 0 2px var(--rojo), 0 14px 28px rgba(179,32,45,.18)}
+.card.elegida::after{background:var(--oro3)}
+.card.elegida .corazon{border-color:var(--rojo3);color:#fff;
+  background:radial-gradient(circle at 32% 28%, #ff8a92 0, var(--rojo2) 28%, var(--rojo) 60%, var(--rojo3) 100%);
+  box-shadow:0 4px 10px rgba(179,32,45,.4);animation:colgar .5s ease}
+@keyframes colgar{0%{transform:scale(.7) rotate(-18deg)}60%{transform:scale(1.12) rotate(8deg)}100%{transform:scale(1) rotate(0)}}
+.card.elegida .foto::after{content:"En tu carta";position:absolute;left:-30px;top:14px;transform:rotate(-38deg);
+  width:120px;text-align:center;background:var(--pino);color:var(--oro2);font-size:9px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;padding:3px 0;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.card.elegida .promo{display:none}
+
+/* ---------- saco de regalos (barra) ---------- */
+.barra{position:fixed;left:10px;right:10px;bottom:10px;z-index:30;display:flex;align-items:center;gap:12px;max-width:620px;margin:0 auto;
+  background:linear-gradient(170deg,var(--pino2),var(--pino3));color:#fff;
+  border-radius:18px;padding:10px 10px 10px 14px;
+  box-shadow:0 14px 34px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.08);
+  transform:translateY(150%);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.barra::before{content:"";position:absolute;left:18px;right:18px;top:-1px;height:3px;border-radius:3px;
+  background:repeating-linear-gradient(90deg,var(--rojo2) 0 10px,#fff 10px 20px)}
+.barra.visible{transform:translateY(0)}
+.barra-info{flex:1;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;line-height:1.45;color:rgba(255,255,255,.8)}
+.barra-info .saco{font-size:16px}
+.barra-info strong{color:#fff;font-size:16px;font-family:var(--display)}
+.barra-info b{color:var(--oro2);font-family:var(--display);font-size:18px;letter-spacing:0}
+.barra .btn{flex:none;padding:11px 18px;min-height:44px;font-size:11.5px}
+
+/* ---------- modal ---------- */
+.modal{position:fixed;inset:0;z-index:60;background:rgba(8,26,19,.72);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal.oculto{display:none}
+.modal-caja{position:relative;width:100%;max-width:430px;max-height:92vh;overflow-y:auto;background:var(--nieve);
+  border-radius:18px;padding:30px 20px 22px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.45);
+  border-top:8px solid var(--rojo)}
+.modal-sobre{font-size:11px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--rojo);margin:0 0 8px}
+.modal-caja h2{font-family:var(--display);font-weight:600;font-size:26px;color:var(--pino);margin-bottom:6px}
+.modal-sub{font-size:13.5px;color:var(--dim);margin:0 0 16px;line-height:1.5}
+.cerrar{position:absolute;right:10px;top:10px;width:36px;height:36px;border-radius:50%;border:1px solid rgba(18,53,40,.2);
+  background:#fff;color:var(--pino);font-size:13px;cursor:pointer;z-index:1}
+.qr-zona{position:relative;display:flex;justify-content:center;margin-bottom:14px}
+.qr-zona svg,.qr-zona img{border-radius:12px;background:#fff;padding:12px;box-shadow:0 0 0 2px var(--pino), 0 0 0 6px #fff, 0 0 0 8px var(--rojo), 0 10px 22px rgba(18,53,40,.2)}
+.link-caja{font-size:11.5px;color:var(--dim);word-break:break-all;background:#fff;border:1px dashed rgba(18,53,40,.25);
+  border-radius:10px;padding:9px 11px;margin:18px 0 16px}
+.modal-btns{display:flex;flex-direction:column;gap:9px}
+.modal-btns .btn{width:100%}
+.nombre-caja{display:block;margin-top:14px;font-size:12px;font-weight:500;color:var(--dim);text-align:left}
+.nombre-caja input{width:100%;margin-top:7px;background:#fff;border:1.5px solid rgba(18,53,40,.2);border-radius:10px;padding:11px 12px;
+  font-family:var(--sans);font-size:16px;color:var(--tinta)}
+.nombre-caja input:focus{outline:none;border-color:var(--rojo)}
+
+/* ---------- vista "lo que le gusta a…" ---------- */
+.regalo{position:relative;overflow:hidden;padding:44px 22px 40px;text-align:center;color:#fff;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 20%, rgba(241,220,160,.16), transparent 70%),
+    linear-gradient(180deg,var(--pino3),var(--pino2))}
+.regalo > *{position:relative;z-index:3}
+.regalo .nieve{z-index:1}
+.regalo .corona{font-size:40px;line-height:1}
+.regalo h1{font-family:var(--display);font-weight:600;font-size:clamp(28px,8vw,40px);margin:12px 0 8px;color:#fff;line-height:1.1}
+.regalo h1 em{display:block;font-family:var(--script);font-style:normal;font-weight:400;font-size:1.7em;color:var(--oro2);line-height:1.1}
+.regalo p.sub{text-wrap:balance;font-size:13.5px;color:rgba(255,255,255,.82);margin:0 auto;max-width:440px;line-height:1.55}
+.lista{max-width:560px;margin:24px auto 0;padding:0 16px}
+.item{display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:10px 14px 10px 10px;margin-bottom:10px;
+  box-shadow:var(--sh);text-align:left;border-left:5px solid var(--rojo)}
+.item:nth-child(even){border-left-color:var(--pino-claro)}
+.item .mini{width:52px;height:52px;border-radius:9px;object-fit:cover;flex:none;background:var(--crema)}
+.item .t{flex:1;font-size:14.5px;line-height:1.3;color:var(--pino3);font-family:var(--display);font-weight:600}
+.item .t small{display:block;color:var(--dim);font-size:11px;margin-top:3px;font-family:var(--sans);font-weight:400;
+  text-transform:uppercase;letter-spacing:.06em}
+.item .p{font-family:var(--display);font-size:18px;font-weight:800;white-space:nowrap;color:var(--rojo)}
+.total{display:flex;justify-content:space-between;align-items:baseline;max-width:528px;margin:14px auto 0;
+  padding:16px 18px;border-top:2px dashed rgba(18,53,40,.25);font-size:12px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.total b{font-family:var(--display);font-size:30px;font-weight:800;color:var(--rojo);letter-spacing:0}
+.regalo-btns{max-width:560px;margin:18px auto 40px;padding:0 16px;display:flex;flex-direction:column;gap:10px}
+
+footer{max-width:560px;margin:40px auto 0;padding:22px 22px 34px;border-top:1px solid rgba(18,53,40,.12);
+  text-align:center;font-size:13px;color:var(--dim);line-height:1.8}
+footer .sello{font-size:16px;margin:0 0 10px;letter-spacing:.3em;color:var(--oro3)}
+footer strong{color:var(--pino);font-family:var(--display);font-size:16px;font-weight:600}
+footer a{color:var(--rojo);text-decoration:none;border-bottom:1px dotted var(--rojo)}
+footer .navid{font-family:var(--script);font-size:26px;line-height:1.2;color:var(--rojo);margin-top:14px}
+
+@media (max-width:420px){
+  .grid{grid-template-columns:repeat(2,1fr);gap:20px 10px}
+  .card{padding:6px 6px 0;border-radius:12px}
+  .card h3{font-size:13.5px}
+  .card .desc{font-size:11.5px}
+  .card .precio{font-size:19px}
+  .card .cuerpo{padding:9px 4px 10px}
+  .card .corazon{width:34px;height:34px}
+  .portada{padding:52px 16px 112px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+:focus-visible{outline:2px solid var(--rojo);outline-offset:2px;border-radius:6px}

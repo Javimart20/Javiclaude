@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carta de Navidad · Tania Centro Estético</title>
+<meta name="description" content="La carta de Navidad de Tania Centro Estético: tratamientos, packs y cosmética con precio, y una lista de deseos que se comparte con un QR.">
+<meta name="theme-color" content="#0f2b22">
+<link rel="icon" href="assets/logo.png">
+<link rel="apple-touch-icon" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400;1,9..144,600&family=Pinyon+Script&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=n1">
+</head>
+<body>
+
+<header class="portada" id="hero">
+  <div class="guirnalda" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+  <div class="portada-in">
+    <div class="corona-navidad">
+      <img class="escudo" src="assets/logo.png" alt="Tania Centro Estético" width="96" height="96">
+      <span class="lazo" aria-hidden="true"></span>
+    </div>
+    <p class="sobre">Tania Centro Estético · València</p>
+    <h1>La carta de <span class="script">Navidad</span></h1>
+    <p class="bajada">Tratamientos, packs y cosmética para regalar.<br>Ella marca con ♥ lo que le gusta y tú lo ves en un QR.</p>
+    <p class="cuenta" id="cuenta"></p>
+    <div class="portada-btns">
+      <a class="btn" id="cta-wa" href="#" target="_blank" rel="noopener">Reservar por WhatsApp</a>
+      <button class="btn ghost" id="btn-qr-catalogo">QR del catálogo</button>
+    </div>
+    <p class="ficha" id="hero-total"></p>
+  </div>
+
+  <svg class="arbolitos" viewBox="0 0 1200 120" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0 120 L0 92 L40 60 L80 92 L110 70 L150 38 L190 70 L215 88 L255 56 L295 88 L330 74 L380 30 L430 74 L460 90 L500 64 L540 90 L580 78 L620 46 L660 78 L700 94 L735 66 L770 94 L810 72 L860 26 L910 72 L940 90 L980 58 L1020 90 L1050 76 L1095 40 L1140 76 L1170 92 L1200 70 L1200 120 Z" fill="#0b2119"/>
+  </svg>
+  <svg class="nevado" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0 60 L0 30 C120 6 220 40 340 24 C470 6 560 38 700 22 C830 8 930 36 1050 20 C1110 12 1160 18 1200 26 L1200 60 Z" fill="#faf6ee"/>
+  </svg>
+</header>
+
+<nav id="chips" aria-label="Apartados del catálogo"></nav>
+
+<main id="catalogo"></main>
+
+<footer>
+  <p class="sello" aria-hidden="true">❄ 🎄 ❄</p>
+  <p><strong>Tania Centro Estético</strong><br>Carrer de Masquefa, 44 · 46020 València</p>
+  <p>Precios con IVA · Reserva por WhatsApp al <a id="foot-tel" href="#">644 39 90 95</a></p>
+  <p class="navid">¡Feliz Navidad y felices Reyes de parte de todo el equipo!</p>
+</footer>
+
+<div id="barra" class="barra">
+  <div class="barra-info"><span class="saco" aria-hidden="true">🎁</span> <strong id="barra-n">0</strong> <span id="barra-txt">en tu carta</span><br><b id="barra-total">0 €</b></div>
+  <button class="btn" id="btn-compartir">Compartir mi carta</button>
+</div>
+
+<div id="modal" class="modal oculto" role="dialog" aria-modal="true">
+  <div class="modal-caja">
+    <button class="cerrar" id="modal-cerrar" aria-label="Cerrar">✕</button>
+    <p class="modal-sobre">❄ Para Papá Noel y los Reyes ❄</p>
+    <h2 id="modal-titulo">Tu carta</h2>
+    <p class="modal-sub" id="modal-sub"></p>
+    <div class="qr-zona"><div id="qr-canvas"></div></div>
+    <p class="link-caja" id="modal-link"></p>
+    <div class="modal-btns">
+      <button class="btn" id="btn-copiar">Copiar enlace</button>
+      <a class="btn ghost" id="btn-wa-carta" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+      <button class="btn ghost" id="btn-descargar">Descargar QR</button>
+    </div>
+    <label class="nombre-caja">Tu nombre (para que sepa de quién es la carta)
+      <input id="input-nombre" maxlength="24" placeholder="Marta">
+    </label>
+  </div>
+</div>
+
+<script src="vendor/qrcode.js?v=3"></script>
+<script src="data.js?v=3"></script>
+<script src="app.js?v=n1"></script>
+<script src="navidad.js?v=n1"></script>
+</body>
+</html>
