@@ -87,6 +87,26 @@
 
     zona.insertBefore(capa, zona.firstChild);
   }
+  // ambiente de toda la página: estrellas y nieve fijas al fondo, detrás de las tarjetas
+  function ambiente() {
+    if (document.querySelector('.ambiente')) return;
+    const a = document.createElement('div');
+    a.className = 'ambiente';
+    a.setAttribute('aria-hidden', 'true');
+    const copos = quieto ? 0 : (movil ? 30 : 55);
+    for (let i = 0; i < copos; i++) {
+      const c = document.createElement('i');
+      if (Math.random() < 0.2) { c.className = 'copo'; c.textContent = '❄'; c.style.fontSize = (Math.random() * 8 + 10).toFixed(0) + 'px'; }
+      else { const tam = (Math.random() * 4 + 2).toFixed(1); c.style.width = c.style.height = tam + 'px'; }
+      c.style.left = (Math.random() * 100).toFixed(2) + '%';
+      c.style.opacity = (Math.random() * 0.45 + 0.35).toFixed(2);
+      c.style.animationDuration = (Math.random() * 12 + 12).toFixed(1) + 's';
+      c.style.animationDelay = (-Math.random() * 24).toFixed(1) + 's';
+      a.appendChild(c);
+    }
+    document.body.insertBefore(a, document.body.firstChild);
+  }
   decorar();
-  window.addEventListener('hashchange', function () { setTimeout(decorar, 0); });
+  ambiente();
+  window.addEventListener('hashchange', function () { setTimeout(function () { decorar(); ambiente(); }, 0); });
 })();

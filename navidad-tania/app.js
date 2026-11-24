@@ -209,7 +209,8 @@ function pintarRegalo(datos) {
       <p><strong>Tania Centro Estético</strong> · Carrer de Masquefa, 44 · 46020 València</p>
       <p>WhatsApp 644 39 90 95 · Precios con IVA</p>
     </footer>`;
-  $('#rn').textContent = datos.n || 'ella';
+  if (datos.n) $('#rn').textContent = datos.n;
+  else $('.regalo h1').innerHTML = 'Mi carta de <em>Navidad</em>';
   const lista = $('#lista');
   items.forEach((i) => {
     const d = document.createElement('div');
