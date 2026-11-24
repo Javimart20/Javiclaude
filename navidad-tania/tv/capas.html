@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<!-- Capas de texto para el vídeo de la TV (1920x1080, fondo transparente). Uso: capas.html?s=1..5 -->
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,800&family=Pinyon+Script&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--oro:#d8b25c;--oro2:#f1dca0;--rojo:#b3202d;--rojo2:#d63b47;--pino:#0b2119}
+*{box-sizing:border-box}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:transparent;color:#fff;font-family:Jost,sans-serif}
+.s{position:absolute;inset:0;display:none}
+.vel{position:absolute;inset:0;background:radial-gradient(ellipse 62% 58% at 50% 46%, rgba(6,20,14,.72), rgba(6,20,14,.35) 70%, rgba(6,20,14,.15))}
+.vel.suave{background:radial-gradient(ellipse 45% 50% at 50% 42%, rgba(6,20,14,.6), transparent 75%)}
+.c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.sobre{font-weight:500;letter-spacing:.36em;text-transform:uppercase;color:var(--oro2);font-size:30px;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+h1,h2{margin:0;font-family:Fraunces;font-weight:700;text-shadow:0 4px 24px rgba(0,0,0,.55)}
+.script{font-family:'Pinyon Script';font-weight:400;color:var(--oro2);text-shadow:0 3px 0 #7a1420,0 0 40px rgba(241,220,160,.35)}
+.logo{width:210px;height:210px;border-radius:50%;background:#fff;box-shadow:0 0 0 7px var(--oro),0 14px 40px rgba(0,0,0,.5)}
+.panel{background:rgba(9,30,22,.82);border:2px solid rgba(216,178,92,.75);border-radius:28px;box-shadow:0 20px 60px rgba(0,0,0,.45), inset 0 0 0 8px rgba(9,30,22,.4), inset 0 0 0 10px rgba(216,178,92,.25)}
+.precio{font-family:Fraunces;font-weight:800;color:var(--oro2)}
+.antes{font-size:40px;color:rgba(255,255,255,.65);text-decoration:line-through;text-decoration-color:var(--rojo2);text-decoration-thickness:4px}
+.chip{display:inline-block;background:var(--rojo);color:#fff;font-weight:600;letter-spacing:.14em;text-transform:uppercase;border-radius:99px;padding:12px 34px;font-size:30px;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+
+/* 1 · portada */
+#s1 h1{font-size:150px;line-height:1;margin-top:26px}
+#s1 h1 .script{display:block;font-size:300px;line-height:.9;margin-top:-6px}
+#s1 .sub{margin-top:34px;font-size:46px;color:#fff;background:rgba(9,30,22,.8);border:2px solid rgba(216,178,92,.7);border-radius:99px;padding:14px 46px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+
+/* 2 · packs */
+#s2 h2{font-size:96px}
+#s2 h2 .script{font-size:150px;vertical-align:-18px}
+.packs{display:flex;gap:44px;margin-top:46px}
+.pack{width:500px;padding:46px 34px 40px;position:relative}
+.pack .n{font-family:Fraunces;font-weight:700;font-size:46px;line-height:1.12;min-height:104px}
+.pack .precio{font-size:130px;line-height:1;margin-top:20px}
+.pack .ahorro{position:absolute;top:-24px;right:28px}
+.pack .chip{font-size:24px;padding:10px 24px}
+.lazo{position:absolute;top:-34px;left:50%;width:84px;height:50px;transform:translateX(-50%)}
+.lazo::before,.lazo::after{content:"";position:absolute;top:4px;width:42px;height:36px;background:linear-gradient(160deg,var(--rojo2),#7a1420);border-radius:50% 10% 50% 50%}
+.lazo::before{left:0;transform:rotate(-12deg)}.lazo::after{right:0;transform:scaleX(-1) rotate(-12deg)}
+
+/* 3 · uñas */
+#s3 .c{flex-direction:row;gap:70px;padding:0 120px}
+.fotos{position:relative;width:820px;height:760px}
+.foto{position:absolute;background:#fff;padding:16px 16px 70px;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.foto img{display:block;object-fit:cover}
+.f1{left:0;top:60px;transform:rotate(-7deg)}.f1 img{width:380px;height:470px}
+.f2{left:330px;top:0;transform:rotate(5deg)}.f2 img{width:380px;height:470px}
+.f3{left:200px;top:300px;transform:rotate(-1deg)}.f3 img{width:430px;height:330px;object-position:50% 30%}
+.txt3{width:760px;text-align:left;padding:60px}
+.txt3 h2{font-size:110px;line-height:1}
+.txt3 h2 .script{display:block;font-size:170px;line-height:1}
+.txt3 p{font-size:46px;margin:28px 0 0;line-height:1.3}
+.txt3 .precio{font-size:120px;line-height:1;margin-top:20px}
+
+/* 4 · QR */
+#s4 .c{flex-direction:row;gap:90px}
+.qrbox{background:#fff;border-radius:34px;padding:34px;box-shadow:0 0 0 10px var(--oro),0 0 0 22px rgba(179,32,45,.9),0 30px 70px rgba(0,0,0,.55)}
+.qrbox svg{display:block;width:560px;height:560px}
+.pasos{text-align:left;width:860px;padding:60px 70px}
+.pasos h2{font-size:100px;line-height:1}
+.pasos h2 .script{font-size:160px}
+.pasos ol{list-style:none;margin:40px 0 0;padding:0;counter-reset:p}
+.pasos li{counter-increment:p;font-size:46px;line-height:1.25;margin:0 0 30px;display:flex;gap:26px;align-items:center}
+.pasos li::before{content:counter(p);flex:none;width:76px;height:76px;border-radius:50%;background:var(--rojo);display:grid;place-items:center;font-family:Fraunces;font-weight:800;font-size:44px;box-shadow:0 0 0 4px var(--oro)}
+.pasos .url{font-size:30px;color:var(--oro2);letter-spacing:.04em}
+
+/* 5 · reserva */
+#s5 .panel{padding:70px 110px 64px;display:flex;flex-direction:column;align-items:center}
+#s5 h2{font-size:100px}
+.wa{display:flex;align-items:center;gap:30px;margin-top:40px}
+.wa svg{width:110px;height:110px}
+.wa b{font-family:Fraunces;font-weight:800;font-size:150px;letter-spacing:.02em;color:#fff}
+.dir{font-size:44px;margin-top:26px;color:rgba(255,255,255,.88)}
+.fel{font-family:'Pinyon Script';font-size:120px;color:var(--oro2);margin-top:20px;line-height:1}
+.fachada{position:absolute;left:90px;bottom:90px;background:#fff;padding:14px 14px 56px;transform:rotate(-5deg);box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.fachada img{width:330px;height:400px;object-fit:cover;display:block}
+.fachada span,.foto span{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-family:'Pinyon Script';color:#7a1420;font-size:40px}
+</style></head><body>
+
+<section class="s" id="s1"><div class="vel suave"></div><div class="c">
+  <img class="logo" src="logo.png" alt="">
+  <p class="sobre" style="margin-top:34px">Tania Centro Estético · València</p>
+  <h1>La carta de<span class="script">Navidad</span></h1>
+  <p class="sub">Regala belleza estas fiestas 🎁</p>
+</div></section>
+
+<section class="s" id="s2"><div class="vel"></div><div class="c">
+  <span class="chip">Packs de Navidad</span>
+  <h2 style="margin-top:26px">Regala <span class="script">belleza</span></h2>
+  <div class="packs">
+    <div class="pack panel"><span class="lazo"></span><span class="ahorro chip">-18 €</span><div class="n">Cavitación + Presoterapia</div><div class="precio">55 €</div><div class="antes">73 €</div></div>
+    <div class="pack panel"><span class="lazo"></span><span class="ahorro chip">-6 €</span><div class="n">Lifting de pestañas + Tinte</div><div class="precio">43 €</div><div class="antes">49,45 €</div></div>
+    <div class="pack panel"><span class="lazo"></span><span class="ahorro chip">-11 €</span><div class="n">Arquitectura de la mirada</div><div class="precio">69 €</div><div class="antes">80,45 €</div></div>
+  </div>
+</div></section>
+
+<section class="s" id="s3"><div class="vel"></div><div class="c">
+  <div class="fotos">
+    <div class="foto f1"><img src="ig_16.jpg" alt=""></div>
+    <div class="foto f2"><img src="ig_15.jpg" alt=""></div>
+    <div class="foto f3"><img src="ig_14.jpg" alt=""><span>by Tania</span></div>
+  </div>
+  <div class="txt3 panel">
+    <h2>Uñas de<span class="script">fiesta</span></h2>
+    <p>Manicura, semipermanente, gel y acrílico</p>
+    <p style="margin-top:34px;font-size:40px;color:var(--oro2)">desde</p>
+    <div class="precio">17,50 €</div>
+  </div>
+</div></section>
+
+<section class="s" id="s4"><div class="vel"></div><div class="c">
+  <div class="qrbox" id="qr"></div>
+  <div class="pasos panel">
+    <h2>Haz tu <span class="script">carta</span></h2>
+    <ol>
+      <li>Escanea el código con el móvil</li>
+      <li>Marca con ♥ lo que te gustaría</li>
+      <li>Envíasela a quien te lo vaya a regalar</li>
+    </ol>
+    <p class="url">fierce-riddle-3hpv.here.now</p>
+  </div>
+</div></section>
+
+<section class="s" id="s5"><div class="vel"></div><div class="c">
+  <div class="panel">
+    <span class="chip">Reserva tu cita o tu regalo</span>
+    <div class="wa">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#25d366"/><path d="M23.3 8.7A10 10 0 0 0 7.4 20.6L6 26l5.5-1.4a10 10 0 0 0 4.5 1.1 10 10 0 0 0 7.3-17Zm-7.3 15.3a8.3 8.3 0 0 1-4.2-1.2l-.3-.2-3.2.9.9-3.2-.2-.3a8.3 8.3 0 1 1 7 4Zm4.6-6.2c-.3-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.8 6.8 0 0 1-3.4-3c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.7-1.2 2.2 2.2 0 0 0 .2-1.2c-.1-.2-.3-.2-.6-.4Z" fill="#fff"/></svg>
+      <b>644 39 90 95</b>
+    </div>
+    <p class="dir">Carrer de Masquefa, 44 · València</p>
+    <p class="fel">¡Felices fiestas!</p>
+  </div>
+  <div class="fachada"><img src="tw_i7397767.jpg" alt=""><span>¡Te esperamos!</span></div>
+</div></section>
+
+<script src="qrcode.js"></script>
+<script>
+const s = new URLSearchParams(location.search).get('s') || '1';
+document.getElementById('s' + s).style.display = 'block';
+const qr = qrcode(0, 'M'); qr.addData('https://fierce-riddle-3hpv.here.now/?ref=tv'); qr.make();
+document.getElementById('qr').innerHTML = qr.createSvgTag({ cellSize: 10, margin: 0, scalable: true });
+</script>
+</body></html>
