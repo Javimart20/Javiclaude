@@ -18,9 +18,11 @@ for name in ['vendor/qrcode.js', 'data.js', 'app.js', 'navidad.js']:
     assert n == 1, name
 assert 'src="assets' not in h and '.js?v' not in h and 'href="styles' not in h
 open('dist/index.html', 'w').write(h)
-if os.path.exists('og.jpg'):
-    import shutil; shutil.copy('og.jpg', 'dist/og.jpg')
-files = ['index.html', 'styles.css', 'app.js', 'data.js', 'navidad.js', 'og.jpg'] + ['vendor/qrcode.js'] + ['assets/' + f for f in os.listdir('assets')]
+import shutil
+EXTRA = ['og.jpg', 'escena.jpg', 'escena-movil.jpg', 'escena.mp4', 'escena-movil.mp4']
+for f in EXTRA:
+    if os.path.exists(f): shutil.copy(f, 'dist/' + f)
+files = ['index.html', 'styles.css', 'app.js', 'data.js', 'navidad.js', 'og.jpg', 'escena.jpg', 'escena-movil.jpg', 'escena.mp4', 'escena-movil.mp4'] + ['vendor/qrcode.js'] + ['assets/' + f for f in os.listdir('assets')]
 with zipfile.ZipFile(f'dist/{os.path.basename(os.getcwd())}.zip', 'w', zipfile.ZIP_DEFLATED) as z:
     for f in files:
         if os.path.exists(f): z.write(f)

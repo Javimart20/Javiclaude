@@ -1,5 +1,5 @@
-/* Adornos de Navidad (solo decoración): guirnalda con luces, bolas colgando, luna con el trineo
-   de Papá Noel y nieve. Se ponen en la portada y también en la página «Lo que le gusta a…». */
+/* Adornos de Navidad (solo decoración): guirnalda con luces, bolas colgando, nieve y la escena
+   ilustrada de fondo (imagen fija y, si se puede, vídeo en bucle). Se ponen en la portada y también en la página «Lo que le gusta a…». */
 (function () {
   const quieto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const movil = window.innerWidth < 600;
@@ -10,26 +10,6 @@
     '<path d="M-10 4 Q600 76 1210 4" fill="none" stroke="#4aa271" stroke-width="10" stroke-dasharray="1 5" vector-effect="non-scaling-stroke"/>' +
     '</svg>';
 
-  const TRINEO = '<svg class="trineo" viewBox="0 0 300 80" aria-hidden="true"><g fill="#fbeec8">' +
-    // trineo y Papá Noel
-    '<circle cx="54" cy="31" r="10"/>' +
-    '<path d="M62 41 C62 28 66 22 74 22 C80 22 84 28 84 41 Z"/>' +
-    '<circle cx="75" cy="17" r="5.5"/><path d="M69 14 L81 13 L88 6 L86 4 Z"/>' +
-    '<path d="M40 40 L104 40 C109 40 112 34 110 29 L100 29 L96 46 L48 46 C42 46 40 43 40 40 Z"/>' +
-    '</g><g fill="none" stroke="#fbeec8" stroke-linecap="round">' +
-    '<path d="M34 55 C44 60 102 60 114 50" stroke-width="3"/>' +
-    '<path d="M54 46 L52 56 M92 46 L94 56" stroke-width="2.2"/>' +
-    '<path d="M108 34 C140 30 170 28 266 28" stroke-width="1"/>' +
-    '</g>' + [150, 195, 240].map(function (x, i) {
-      return '<g fill="#fbeec8"><ellipse cx="' + x + '" cy="38" rx="14" ry="6"/>' +
-        '<path d="M' + (x + 9) + ' 36 L' + (x + 16) + ' 26 L' + (x + 20) + ' 27 L' + (x + 14) + ' 38 Z"/>' +
-        '<ellipse cx="' + (x + 21) + '" cy="25" rx="5" ry="3"/>' +
-        (i === 2 ? '<circle cx="' + (x + 26) + '" cy="25" r="2" fill="#ff4b55"/>' : '') +
-        '</g><g fill="none" stroke="#fbeec8" stroke-width="2" stroke-linecap="round">' +
-        '<path d="M' + (x + 18) + ' 22 L' + (x + 16) + ' 14 M' + (x + 17) + ' 17 L' + (x + 12) + ' 15 M' + (x + 21) + ' 22 L' + (x + 23) + ' 14 M' + (x + 22) + ' 17 L' + (x + 27) + ' 15"/>' +
-        '<path d="M' + (x - 9) + ' 41 L' + (x - 16) + ' 50 M' + (x - 5) + ' 43 L' + (x - 3) + ' 53 M' + (x + 6) + ' 43 L' + (x + 13) + ' 51 M' + (x + 10) + ' 41 L' + (x + 18) + ' 46"/></g>';
-    }).join('') + '</svg>';
-
   function decorar() {
     const zona = document.querySelector('.portada, .regalo');
     if (!zona || zona.querySelector('.adornos')) return;
@@ -37,8 +17,6 @@
     capa.className = 'adornos';
     capa.setAttribute('aria-hidden', 'true');
 
-    // luna y trineo
-    capa.insertAdjacentHTML('beforeend', '<div class="luna"></div>' + TRINEO);
 
     // guirnalda de pino con luces
     const g = document.createElement('div');
@@ -57,7 +35,11 @@
 
     // bolas colgando a los lados
     const colores = ['#c62f3a', '#d8b25c', '#2f6fd6', '#c62f3a', '#2f8a57', '#d8b25c'];
-    const sitios = movil ? [[3, 46], [11, 92], [86, 70], [94, 40]] : [[3, 60], [8, 130], [14, 84], [86, 96], [91, 150], [96, 62]];
+    const conEscena = !!zona.querySelector('.escena');
+    // con la ilustración, la luna y el trineo están arriba a la derecha: las bolas van solo a la izquierda
+    const sitios = conEscena
+      ? (movil ? [[4, 50], [14, 96], [24, 40]] : [[3, 60], [8, 130], [14, 84], [20, 44]])
+      : (movil ? [[3, 46], [11, 92], [86, 70], [94, 40]] : [[3, 60], [8, 130], [14, 84], [86, 96], [91, 150], [96, 62]]);
     sitios.forEach(function (p, i) {
       const b = document.createElement('span');
       b.className = 'bola';
@@ -106,7 +88,17 @@
     }
     document.body.insertBefore(a, document.body.firstChild);
   }
+  // vídeo de fondo de la portada: solo si el usuario no pide menos movimiento ni ahorro de datos
+  function video() {
+    const v = document.querySelector('.escena video');
+    if (!v || v.getAttribute('src') || quieto) return;
+    if (navigator.connection && navigator.connection.saveData) return;
+    v.src = window.matchMedia('(max-width:700px)').matches ? v.dataset.movil : v.dataset.escritorio;
+    v.addEventListener('playing', function () { v.classList.add('visible'); }, { once: true });
+    const p = v.play(); if (p && p.catch) p.catch(function () {});
+  }
   decorar();
   ambiente();
-  window.addEventListener('hashchange', function () { setTimeout(function () { decorar(); ambiente(); }, 0); });
+  video();
+  window.addEventListener('hashchange', function () { setTimeout(function () { decorar(); ambiente(); video(); }, 0); });
 })();

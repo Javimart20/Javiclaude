@@ -188,7 +188,7 @@ function leerHash() {
 function pintarRegalo(datos) {
   const items = datos.ids.map((id) => PORID.get(id));
   const t = items.filter((i) => i.precio).reduce((s, i) => s + i.precio, 0);
-  const pueblo = (document.querySelector('.pueblo') || {}).outerHTML || '';
+  const pueblo = (document.querySelector('.escena') || {}).outerHTML || '';
   const nevado = (document.querySelector('.nevado') || {}).outerHTML || '';
   document.body.innerHTML = `
     <div class="regalo">
